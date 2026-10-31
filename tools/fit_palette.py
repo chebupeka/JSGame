@@ -24,25 +24,32 @@ from PIL import Image
 from palette import load_palette, nearest_index, to_hex
 
 
-def estimate_grid(profile, shortest=3, longest=24):
-    """Период и сдвиг сетки по профилю границ (через спектр Фурье).
+def estimate_grid(profiles, shortest=3, longest=24):
+    """Размер клетки и сдвиг сетки по профилям границ (через спектр Фурье).
 
-    profile[x] — сила перепада между столбцами x и x + 1. Если картинка
-    состоит из квадратов размера p, перепады повторяются каждые p точек.
+    profiles — профили перепадов по столбцам и по строкам: profile[x] —
+    сила перепада между x и x + 1. Если картинка состоит из квадратов
+    размера p, перепады повторяются каждые p точек. Пиксели квадратные,
+    поэтому период ищется один на обе оси: спектры складываются.
     """
-    signal = profile - profile.mean()
-    n = len(signal)
-    size = 1 << int(np.ceil(np.log2(n * 16)))
-    spectrum = np.abs(np.fft.rfft(signal * np.hanning(n), size))
+    signals = [p - p.mean() for p in profiles]
+    size = 1 << int(np.ceil(np.log2(max(len(s) for s in signals) * 16)))
     freqs = np.fft.rfftfreq(size)
     allowed = (freqs >= 1 / longest) & (freqs <= 1 / shortest)
-    freq = freqs[np.argmax(np.where(allowed, spectrum, 0))]
+
+    total = np.zeros(len(freqs))
+    for signal in signals:
+        spectrum = np.abs(np.fft.rfft(signal * np.hanning(len(signal)), size))
+        total += np.where(allowed, spectrum, 0) / spectrum[allowed].max()
+
+    freq = freqs[np.argmax(total)]
     period = 1 / freq
+    offsets = []
+    for signal in signals:
+        phase = np.angle(np.sum(signal * np.exp(-2j * np.pi * freq * np.arange(len(signal)))))
+        offsets.append((-phase / (2 * np.pi) * period + 1) % period)
 
-    phase = np.angle(np.sum(signal * np.exp(-2j * np.pi * freq * np.arange(n))))
-    offset = (-phase / (2 * np.pi) * period + 1) % period
-
-    return period, offset
+    return period, offsets
 
 
 def cell_indices(length, period, offset):
@@ -74,10 +81,14 @@ def fit(src, width=None, height=None, alpha_threshold=160, without=()):
         grid = f"задан вручную: {width}×{height}"
     else:
         lightness = np.where(opaque, palette[index].mean(-1), 0).astype(float)
-        px, ox = estimate_grid(np.abs(np.diff(lightness, axis=1)).sum(0))
-        py, oy = estimate_grid(np.abs(np.diff(lightness, axis=0)).sum(1))
-        cx, cy = cell_indices(w, px, ox), cell_indices(h, py, oy)
-        grid = f"найдена сама: клетка {px:.2f}×{py:.2f}"
+        period, (ox, oy) = estimate_grid(
+            [
+                np.abs(np.diff(lightness, axis=1)).sum(0),
+                np.abs(np.diff(lightness, axis=0)).sum(1),
+            ]
+        )
+        cx, cy = cell_indices(w, period, ox), cell_indices(h, period, oy)
+        grid = f"найдена сама: клетка {period:.2f}"
 
     n = len(palette)
     nw, nh = cx.max() + 1, cy.max() + 1
