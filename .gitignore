@@ -4,3 +4,7 @@ dist/
 *.log
 .env
 .env.*
+
+# Сырые генерации и превью ассетов
+assets/_raw/
+assets/_preview/
