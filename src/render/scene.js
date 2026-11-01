@@ -9,6 +9,7 @@ import {
   drawSwitchboardThings,
   hasClass,
 } from "../rooms/switchboard/things.js";
+import { drawMonitor } from "../rooms/switchboard/monitor.js";
 import { drawTerminalBody } from "../terminal/body.js";
 import { drawLever } from "../terminal/lever.js";
 import { drawLampLight } from "./light.js";
@@ -67,6 +68,8 @@ export const drawScene = (ctx, state, time) => {
     drawSwitchboardThings(ctx, world?.things, sprites);
     drawPlates(ctx, world?.things, wires, state.flash, time);
     drawLight(ctx, world?.things.lamp);
+    // Решённый файл работает на мониторе на стене.
+    drawMonitor(ctx, SWITCHBOARD.screen, state.solved);
     // Вещь под щупом обведена пунктиром.
     if (probed?.present) drawDottedOutline(ctx, probed.rect);
   }

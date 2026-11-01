@@ -113,7 +113,8 @@ export const drawGirl = (ctx, girl, time, sheets) => {
     return;
   }
 
-  const set = fading ? sheets.dark : sheets;
+  // Идёт по синему свету лампы — на кромке синий отсвет; у порога темнеет.
+  const set = fading ? sheets.dark : walking ? sheets.lit : sheets;
   if (walking) {
     // Кадр шага привязан к пройденному пути, а не ко времени:
     // ноги не скользят по полу.

@@ -11,6 +11,7 @@ export const SWITCHBOARD = {
   lamp: { x: layout.lampMount.x, y: layout.lampMount.y, w: 14, h: 20 },
   plate: layout.plate,
   monitor: layout.monitor,
+  screen: layout.screen,
   floor: { top: layout.floorY, bottom: 106 },
 };
 

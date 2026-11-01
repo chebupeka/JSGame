@@ -1,7 +1,7 @@
 import backgroundUrl from "../../assets/sprites/bg-switchroom.png";
 import lampUrl from "../../assets/sprites/lamp.png";
 import terminalUrl from "../../assets/sprites/terminal.png";
-import { grey } from "./palette.js";
+import { blueGlow, grey } from "./palette.js";
 
 // Её листы кадров: girl-stand.png, girl-walk.png… Пока их нет, игра
 // рисует силуэт, поэтому они подключаются по маске, а не обязательным импортом.
@@ -26,9 +26,8 @@ const load = (url) =>
 const hex = (r, g, b) =>
   `#${[r, g, b].map((v) => v.toString(16).padStart(2, `0`)).join(``)}`.toUpperCase();
 
-// Тот же спрайт, где каждый серый на ступень темнее: так она растворяется
-// в тёмном дверном проёме, не выходя из палитры.
-const darker = (image) => {
+// Тот же спрайт, перекрашенный по таблице «цвет → цвет» внутри палитры.
+const recolor = (image, table) => {
   const canvas = document.createElement(`canvas`);
   canvas.width = image.width;
   canvas.height = image.height;
@@ -38,17 +37,29 @@ const darker = (image) => {
   const pixels = ctx.getImageData(0, 0, canvas.width, canvas.height);
   const { data } = pixels;
   for (let i = 0; i < data.length; i += 4) {
-    const step = grey.indexOf(hex(data[i], data[i + 1], data[i + 2]));
-    if (data[i + 3] === 0 || step < 1) continue;
+    const target = table[hex(data[i], data[i + 1], data[i + 2])];
+    if (data[i + 3] === 0 || !target) continue;
 
-    const [r, g, b] = [1, 3, 5].map((at) =>
-      parseInt(grey[step - 1].slice(at, at + 2), 16),
+    data.set(
+      [1, 3, 5].map((at) => parseInt(target.slice(at, at + 2), 16)),
+      i,
     );
-    data.set([r, g, b], i);
   }
   ctx.putImageData(pixels, 0, 0);
   return canvas;
 };
+
+// Каждый серый на ступень темнее: так она растворяется в тёмном дверном
+// проёме, не выходя из палитры.
+const DARKER = Object.fromEntries(grey.slice(1).map((c, i) => [c, grey[i]]));
+
+// В синем свете лампы её светлая кромка ловит синий отсвет на сером.
+const LIT = { [grey[3]]: blueGlow, [grey[4]]: blueGlow };
+
+const variants = (entries, table) =>
+  Object.fromEntries(
+    entries.map(([action, image]) => [action, recolor(image, table)]),
+  );
 
 const loadGirl = async () => {
   const entries = await Promise.all(
@@ -59,11 +70,11 @@ const loadGirl = async () => {
   );
   if (!entries.length) return null;
 
-  const sheets = Object.fromEntries(entries);
-  sheets.dark = Object.fromEntries(
-    entries.map(([action, image]) => [action, darker(image)]),
-  );
-  return sheets;
+  return {
+    ...Object.fromEntries(entries),
+    dark: variants(entries, DARKER),
+    lit: variants(entries, LIT),
+  };
 };
 
 export const loadSprites = async () => {

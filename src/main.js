@@ -9,6 +9,7 @@ import { explainError } from "./code/errors.js";
 import { createLivePreview } from "./code/live.js";
 import { findQueries } from "./code/preview.js";
 import { createGirl, girlBox, resetGirl, updateGirl } from "./girl/girl.js";
+import { loadProgress, saveProgress } from "./progress.js";
 import { drawScene } from "./render/scene.js";
 import { loadSprites } from "./render/sprites.js";
 import { STENCIL_FONT, plateText } from "./render/stencil.js";
@@ -151,26 +152,62 @@ const [sprites] = await Promise.all([
 state.sprites = sprites;
 ctx.imageSmoothingEnabled = false;
 
+// Прогресс: решённый файл работает на мониторе и в мире после F5,
+// черновик не теряется.
+const progress = loadProgress();
+state.solved = progress.solved[TASK.file] ?? null;
+if (state.solved) {
+  state.girl.mode = `gone`;
+  state.notes = [];
+}
+
 // Запуск — как перезагрузка питания: чистая страница, затем твой код.
-// Она снова стоит у ставня и ждёт, что получится.
+// Пока задача не решена, она снова стоит у ставня и ждёт, что получится.
 const run = () => {
   state.lever.closed = true;
   state.world = null;
   state.notes = null;
-  resetGirl(state.girl);
+  if (!state.solved) resetGirl(state.girl);
   refreshNotes();
   lastRun = editor.state.doc.toString();
   editor.dispatch({ effects: setNotch.of(null) });
   sandbox.run([{ name: TASK.file, code: lastRun }]);
 };
 
+// Успех ничем не объявляется (MECHANICS.md §3.4): она прошла в дверь,
+// файл уезжает на монитор на стене и работает там дальше. Несколько
+// секунд игра ничего не предлагает — можно просто смотреть.
+const succeed = () => {
+  state.solved = lastRun;
+  progress.solved[TASK.file] = lastRun;
+  saveProgress(progress);
+  state.notes = [];
+  refreshNotes();
+};
+
+let saveDraft = null;
+const keepDraft = () => {
+  clearTimeout(saveDraft);
+  saveDraft = setTimeout(() => {
+    progress.drafts[TASK.file] = editor.state.doc.toString();
+    saveProgress(progress);
+  }, 500);
+};
+
 document.querySelector(`#nameplate`).textContent = TASK.file;
 applyLayout(state.layout);
 let live = null;
-const editor = createEditor(document.querySelector(`#code`), TASK.code, {
-  onRun: run,
-  onChange: (update) => live.onChange(update),
-});
+const editor = createEditor(
+  document.querySelector(`#code`),
+  progress.drafts[TASK.file] ?? TASK.code,
+  {
+    onRun: run,
+    onChange: (update) => {
+      live.onChange(update);
+      keepDraft();
+    },
+  },
+);
 
 // Пока печатаешь, код не выполняется: превью только читает разбор
 // и спрашивает у чистой комнаты, что находят селекторы.
@@ -319,15 +356,20 @@ canvas.addEventListener(`pointerleave`, () => {
   unhover();
 });
 
-// Первая загрузка: комната без кода игрока, лампа не горит.
-sandbox.run([]);
+// Первая загрузка: комната и уже решённые файлы станции. Без них лампа
+// не горит.
+lastRun = state.solved ?? ``;
+sandbox.run(state.solved ? [{ name: TASK.file, code: state.solved }] : []);
 
 let last = performance.now();
 const tick = (now) => {
   const lamp = state.world?.things.lamp;
   const lampOn = !!state.world?.room.present && hasClass(lamp, `on`);
+  const before = state.girl.mode;
 
   updateGirl(state.girl, { lampOn }, Math.min(0.1, (now - last) / 1000));
+  const left = before !== `gone` && state.girl.mode === `gone`;
+  if (left && !state.solved) succeed();
   last = now;
   render(now);
   requestAnimationFrame(tick);
