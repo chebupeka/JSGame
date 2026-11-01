@@ -35,14 +35,16 @@ export const installDevTools = ({
   setLayout,
   canvas,
   editor,
+  sandbox,
 }) => {
   checkPixels(canvas, state);
 
   // Для проверок из консоли DevTools: jsgame.state, jsgame.render(),
-  // jsgame.setCode(`…`).
+  // jsgame.query([`#lamp`]), jsgame.setCode(`…`).
   window.jsgame = {
     state,
     render,
+    query: sandbox.query,
     setCode: (code) =>
       editor.dispatch({
         changes: { from: 0, to: editor.state.doc.length, insert: code },

@@ -1,10 +1,13 @@
 import "@fontsource/jetbrains-mono/400.css";
 import "@fontsource/jetbrains-mono/400-italic.css";
+import "@fontsource/tiny5/400.css";
 import "./style.css";
 
+import { createLivePreview } from "./code/live.js";
 import { createGirl, resetGirl, updateGirl } from "./girl/stub.js";
 import { drawScene } from "./render/scene.js";
 import { loadSprites } from "./render/sprites.js";
+import { STENCIL_FONT } from "./render/stencil.js";
 import {
   SWITCHBOARD_ROOM,
   SWITCHBOARD_THINGS,
@@ -22,6 +25,7 @@ const FILE = `lamp.js`;
 const NOTE = `Темно. Лампа на стене — это элемент страницы, у неё есть имя. Запуск — Ctrl+Enter или рубильник.`;
 const SMALL = `Разверни окно или нажми F11.`;
 const HANG = `Код не закончился и за секунду. Похоже на бесконечный цикл. Станция перезапущена, можно запускать снова.`;
+const UNKNOWN = `Узнаем при запуске. Заранее тут честно не сказать: селектор собирается на ходу, ищет не от document или код выше меняет страницу.`;
 
 const frame = document.querySelector(`#frame`);
 const canvas = document.querySelector(`#scene`);
@@ -35,6 +39,7 @@ const state = {
   girl: createGirl(),
   lever: { closed: false },
   notes: [NOTE],
+  wires: [],
 };
 
 const render = (time = performance.now()) => drawScene(ctx, state, time);
@@ -44,9 +49,12 @@ const refreshNotes = () =>
   showNotes(...(state.scale < 4 ? [SMALL] : []), ...state.notes);
 
 const sandbox = createSandbox({
-  container: document.querySelector(`#sandbox`),
+  worldContainer: document.querySelector(`#sandbox`),
+  previewContainer: document.querySelector(`#preview`),
   room: SWITCHBOARD_ROOM,
   things: SWITCHBOARD_THINGS,
+  // Решённые файлы станции: в главе 1 их ещё нет.
+  solvedFiles: () => [],
   onSnapshot: (world) => {
     state.world = world;
   },
@@ -67,6 +75,7 @@ const [sprites] = await Promise.all([
   loadSprites(),
   document.fonts.load(`1em "JetBrains Mono"`, `a=>Ж`),
   document.fonts.load(`italic 1em "JetBrains Mono"`, `aЖ`),
+  document.fonts.load(STENCIL_FONT, `#.-_az09`),
 ]);
 state.sprites = sprites;
 ctx.imageSmoothingEnabled = false;
@@ -84,8 +93,29 @@ const run = () => {
 
 document.querySelector(`#nameplate`).textContent = FILE;
 applyLayout(state.layout);
+let live = null;
 const editor = createEditor(document.querySelector(`#code`), TASK, {
   onRun: run,
+  onChange: (update) => live.onChange(update),
+});
+
+// Пока печатаешь, код не выполняется: превью только читает разбор
+// и спрашивает у чистой комнаты, что находят селекторы.
+live = createLivePreview({
+  editor,
+  query: sandbox.query,
+  onWires: (wires) => {
+    state.wires = wires;
+  },
+});
+live.schedule();
+
+// Наведи мышь на пунктир — на полях объяснение, почему «узнаем при запуске».
+editor.dom.addEventListener(`mouseover`, ({ target }) => {
+  if (target.closest(`.cm-unknown`)) showNotes(UNKNOWN);
+});
+editor.dom.addEventListener(`mouseout`, ({ target }) => {
+  if (target.closest(`.cm-unknown`)) refreshNotes();
 });
 
 // Другая раскладка — другой размер шрифта: редактор должен перемерить строки.
@@ -153,5 +183,5 @@ requestAnimationFrame(tick);
 
 if (import.meta.env.DEV) {
   const { installDevTools } = await import(`./dev/tools.js`);
-  installDevTools({ state, render, setLayout, canvas, editor });
+  installDevTools({ state, render, setLayout, canvas, editor, sandbox });
 }

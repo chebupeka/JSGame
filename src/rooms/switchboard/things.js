@@ -1,29 +1,30 @@
-import { blue, blueLight, grey } from "../../render/palette.js";
-import { dot, rect } from "../../render/pixels.js";
-
 export const hasClass = (thing, name) =>
   thing?.present ? thing.className.split(/\s+/).includes(name) : false;
 
-// Лампа-заглушка, пока Codex не нарисовал спрайт (этап 4). Место и размер —
-// из настоящей вёрстки в песочнице, кадр — из класса `on`.
-const drawLamp = (ctx, lamp) => {
-  if (!lamp?.present) return;
+// Лампа — спрайт от Codex, два кадра одним листом: выключена | горит.
+// Место и размер — из настоящей вёрстки в песочнице, кадр — из класса `on`.
+const drawLamp = (ctx, lamp, sheet) => {
+  if (!lamp?.present || !sheet) return;
 
-  const x = Math.round(lamp.rect.x);
-  const y = Math.round(lamp.rect.y);
-  const w = Math.round(lamp.rect.width);
-  const h = Math.round(lamp.rect.height);
-  const on = hasClass(lamp, `on`);
+  const { x, y, width, height } = lamp.rect;
+  // Рамка 0×0 — лампу спрятали (`display: none`) или песочница ещё
+  // не получила размер: рисовать нечего.
+  if (width < 1 || height < 1) return;
 
-  // Рамка 0×0 — лампу спрятали (`display: none`): рисовать нечего.
-  if (w < 5 || h < 6) return;
-
-  rect(ctx, grey[3], x, y, w, 2);
-  rect(ctx, grey[2], x + 1, y + 2, w - 2, h - 2);
-  rect(ctx, on ? blue : grey[0], x + 2, y + 3, w - 4, h - 5);
-  if (on) dot(ctx, blueLight, x + 3, y + 4);
+  const frame = hasClass(lamp, `on`) ? 1 : 0;
+  ctx.drawImage(
+    sheet,
+    frame * 14,
+    0,
+    14,
+    20,
+    Math.round(x),
+    Math.round(y),
+    14,
+    20,
+  );
 };
 
-export const drawSwitchboardThings = (ctx, things) => {
-  drawLamp(ctx, things?.lamp);
+export const drawSwitchboardThings = (ctx, things, sprites) => {
+  drawLamp(ctx, things?.lamp, sprites?.lamp);
 };

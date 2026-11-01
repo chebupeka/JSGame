@@ -1,3 +1,5 @@
+import backgroundUrl from "../../assets/sprites/bg-switchroom.png";
+import lampUrl from "../../assets/sprites/lamp.png";
 import terminalUrl from "../../assets/sprites/terminal.png";
 
 // Спрайты из assets/sprites рисуются 1:1 по целым координатам, поэтому
@@ -12,9 +14,12 @@ const load = (url) =>
     image.src = url;
   });
 
-export const loadSprites = async () => ({
-  terminal: await load(terminalUrl),
-});
+export const loadSprites = async () => {
+  const [background, lamp, terminal] = await Promise.all(
+    [backgroundUrl, lampUrl, terminalUrl].map(load),
+  );
+  return { background, lamp, terminal };
+};
 
 export const drawSprite = (ctx, image, x, y) =>
   ctx.drawImage(image, Math.round(x), Math.round(y));

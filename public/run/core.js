@@ -37,10 +37,36 @@ export const readThing = (element, read) => {
   const box = read.rect(element);
   return {
     present: true,
+    id: read.id(element),
     className: read.className(element),
     background: read.background(element),
     rect: { x: box.x, y: box.y, width: box.width, height: box.height },
   };
+};
+
+// Ответ превью: что находит каждый селектор. queryAll — сохранённый агентом
+// querySelectorAll (бросает на неверном селекторе), keyOf — какая это вещь
+// манифеста. Только чтение: комнату это не меняет.
+export const matchSelectors = (selectors, queryAll, read, keyOf) => {
+  const out = [];
+  for (let i = 0; i < selectors.length; i++) {
+    let found;
+    try {
+      found = queryAll(selectors[i]);
+    } catch {
+      out[i] = { valid: false, count: 0, rects: [], keys: [] };
+      continue;
+    }
+
+    const rects = [];
+    const keys = [];
+    for (let j = 0; j < found.length && j < 8; j++) {
+      rects[j] = read.rect(found[j]);
+      keys[j] = keyOf(found[j]) ?? null;
+    }
+    out[i] = { valid: true, count: found.length, rects, keys };
+  }
+  return out;
 };
 
 export const snapshot = (things, bound, read) => {

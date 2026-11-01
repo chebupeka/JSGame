@@ -1,4 +1,4 @@
-import { bindThings, locate, snapshot } from "./core.js";
+import { bindThings, locate, matchSelectors, snapshot } from "./core.js";
 
 // Агент песочницы. Загружается первым и сохраняет настоящие функции
 // браузера до кода игрока. Безопасность даёт отдельный origin, а это —
@@ -20,6 +20,14 @@ const NativeMutationObserver = MutationObserver;
 
 const native = {
   querySelector: Document.prototype.querySelector,
+  querySelectorAll: Document.prototype.querySelectorAll,
+  listLength: getter(NodeList.prototype, `length`),
+  listItem: NodeList.prototype.item,
+  id: getter(Element.prototype, `id`),
+  mapGet: WeakMap.prototype.get,
+  mapSet: WeakMap.prototype.set,
+  portStart: MessagePort.prototype.start,
+  eventData: getter(MessageEvent.prototype, `data`),
   createElement: Document.prototype.createElement,
   head: getter(Document.prototype, `head`),
   body: getter(Document.prototype, `body`),
@@ -48,6 +56,7 @@ const native = {
 
 const read = {
   isConnected: (element) => apply(native.isConnected, element, []),
+  id: (element) => apply(native.id, element, []),
   className: (element) => apply(native.className, element, []),
   background: (element) =>
     apply(native.propertyValue, apply(native.computedStyle, win, [element]), [
@@ -96,6 +105,40 @@ const start = (port, { room, things, files }) => {
   const find = (selector) => apply(native.querySelector, doc, [selector]);
   const roomRoot = find(room.root);
   const bound = bindThings(things, find);
+
+  // Обратный реестр: элемент → ключ вещи манифеста.
+  const keys = new WeakMap();
+  for (let i = 0; i < things.length; i++) {
+    const element = bound[things[i].key];
+    if (element) apply(native.mapSet, keys, [element, things[i].key]);
+  }
+  const keyOf = (element) => apply(native.mapGet, keys, [element]);
+
+  const queryAll = (selector) => {
+    const list = apply(native.querySelectorAll, doc, [selector]);
+    const found = [];
+    const length = apply(native.listLength, list, []);
+    for (let i = 0; i < length; i++) {
+      found[i] = apply(native.listItem, list, [i]);
+    }
+    return found;
+  };
+
+  // Превью спрашивает, что находят селекторы. Отвечаем настоящим
+  // querySelectorAll — только чтение, комната от этого не меняется.
+  apply(native.listen, port, [
+    `message`,
+    (event) => {
+      const data = apply(native.eventData, event, []);
+      if (!data || data.type !== `query`) return;
+      send({
+        type: `matches`,
+        id: data.id,
+        results: matchSelectors(data.selectors, queryAll, read, keyOf),
+      });
+    },
+  ]);
+  apply(native.portStart, port, []);
 
   const sendSnapshot = () =>
     send({

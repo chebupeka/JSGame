@@ -1,7 +1,13 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { bindThings, locate, readThing, snapshot } from "../public/run/core.js";
+import {
+  bindThings,
+  locate,
+  matchSelectors,
+  readThing,
+  snapshot,
+} from "../public/run/core.js";
 
 const URL = `blob:http://127.0.0.1:5173/4b0f2c1e-9d7a-4e2b-8f1a-1c2d3e4f5a6b`;
 
@@ -32,6 +38,7 @@ test(`у SyntaxError и у брошенной строки места нет`, (
 
 const fakeRead = {
   isConnected: (element) => element.connected,
+  id: (element) => element.id,
   className: (element) => element.className,
   background: (element) => element.background,
   rect: (element) => element.rect,
@@ -39,14 +46,16 @@ const fakeRead = {
 
 const lamp = {
   connected: true,
+  id: `lamp`,
   className: `lamp on`,
   background: `rgb(87, 154, 243)`,
   rect: { x: 112, y: 33, width: 7, height: 9 },
 };
 
-test(`снимок вещи: классы, цвет и рамка из вёрстки`, () => {
+test(`снимок вещи: id, классы, цвет и рамка из вёрстки`, () => {
   assert.deepEqual(readThing(lamp, fakeRead), {
     present: true,
+    id: `lamp`,
     className: `lamp on`,
     background: `rgb(87, 154, 243)`,
     rect: { x: 112, y: 33, width: 7, height: 9 },
@@ -67,6 +76,37 @@ test(`вещи привязаны к элементам, а не к селект
   );
 
   // Игрок сменил id: селектор больше не найдёт лампу, а снимок найдёт.
-  lamp.id = `x`;
-  assert.equal(snapshot(things, bound, fakeRead).lamp.present, true);
+  const renamed = { ...lamp };
+  const boundRenamed = bindThings(things, () => renamed);
+  renamed.id = `x`;
+  const { lamp: seen } = snapshot(things, boundRenamed, fakeRead);
+  assert.equal(seen.present, true);
+  assert.equal(seen.id, `x`);
+  assert.ok(bound.lamp);
+});
+
+test(`превью: сколько нашлось, где и какие это вещи`, () => {
+  const door = { rect: { x: 34, y: 40, width: 22, height: 38 } };
+  const queryAll = (selector) => {
+    if (selector === `#lamp`) return [lamp];
+    if (selector === `div`) return [lamp, door];
+    if (selector === `#`) throw new SyntaxError(`'#' is not a valid selector`);
+    return [];
+  };
+  const keyOf = (element) => (element === lamp ? `lamp` : undefined);
+
+  assert.deepEqual(
+    matchSelectors([`#lamp`, `#lam`, `div`, `#`], queryAll, fakeRead, keyOf),
+    [
+      { valid: true, count: 1, rects: [lamp.rect], keys: [`lamp`] },
+      { valid: true, count: 0, rects: [], keys: [] },
+      {
+        valid: true,
+        count: 2,
+        rects: [lamp.rect, door.rect],
+        keys: [`lamp`, null],
+      },
+      { valid: false, count: 0, rects: [], keys: [] },
+    ],
+  );
 });

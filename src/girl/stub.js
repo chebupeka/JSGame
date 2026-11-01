@@ -5,21 +5,27 @@ import { rect } from "../render/pixels.js";
 // Силуэт-заглушка, пока Codex не нарисовал её (этап 9). Она не в DOM:
 // это человек, который пользуется твоим кодом. Стоит в полосе дневного
 // света, а когда лампа загорается, идёт к двери.
-const START = { x: 191, feet: 100 };
+const { slit, door } = SWITCHBOARD;
+const START_FEET = 100;
+const START = {
+  x: Math.round(slit.x - (START_FEET - slit.bottom) * 0.35) - 7,
+  feet: START_FEET,
+};
 const DOOR = {
-  x: SWITCHBOARD.door.x + 4,
-  feet: SWITCHBOARD.door.y + SWITCHBOARD.door.h + 1,
+  x: door.x + Math.round(door.w / 2) - 7,
+  feet: door.y + door.h,
 };
 const SPEED = 18;
 
 // Фигура ровно 14 в ширину: столько места под неё заложено на полу.
+// Тёмная, как она на референсе против светлого.
 export const drawSilhouette = (
   ctx,
   x,
   feet,
   height,
   step = 0,
-  color = grey[4],
+  color = grey[1],
 ) => {
   const top = feet - height;
   rect(ctx, color, x + 4, top, 6, 6);
@@ -48,11 +54,11 @@ export const GIRL_PATH = [
   [DOOR.x + 7, DOOR.feet],
 ];
 
-// За освещённым порогом она растворяется в темноте по ступеням палитры.
+// У освещённого порога она темнеет до цвета дверного проёма
+// и растворяется в нём.
 const FADE = [
-  [0.9, grey[4]],
-  [0.95, grey[3]],
-  [1, grey[2]],
+  [0.92, grey[1]],
+  [1, grey[0]],
 ];
 
 export const drawGirl = (ctx, girl, time) => {
@@ -61,7 +67,7 @@ export const drawGirl = (ctx, girl, time) => {
   const { progress } = girl;
   const x = Math.round(START.x + (DOOR.x - START.x) * progress);
   const feet = Math.round(START.feet + (DOOR.feet - START.feet) * progress);
-  const color = FADE.find(([until]) => progress < until)?.[1] ?? grey[2];
+  const color = FADE.find(([until]) => progress < until)?.[1] ?? grey[0];
 
   if (girl.mode === `walk`) {
     drawSilhouette(ctx, x, feet, 36, Math.floor(time / 180) % 2, color);
