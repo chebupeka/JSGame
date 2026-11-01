@@ -1,10 +1,10 @@
-import { SWITCHBOARD } from "../rooms/switchboard/backdrop.js";
 import { grey } from "../render/palette.js";
 import { rect } from "../render/pixels.js";
 
 // Она. Её нет в DOM: это человек, который пользуется твоим кодом.
 // Стоит перед ставнем спиной к нам, там, где из-под него пробивается
-// дневной свет, а когда лампа загорается, идёт к двери.
+// дневной свет, а когда получила, что ей нужно, идёт к двери. Путь —
+// у каждого места свой: [[x, ноги] у ставня, [x, ноги] у порога].
 //
 // Спрайты — листы кадров assets/sprites/girl-<действие>.png: клетки 24×40,
 // ноги в точке (12, 39) каждой клетки. Ходьба нарисована лицом вправо,
@@ -14,32 +14,17 @@ const FEET = { x: 12, y: 39 };
 const STEP = 3;
 const SPEED = 18;
 
-const { shutter, door } = SWITCHBOARD;
-const START = {
-  x: shutter.x + Math.round(shutter.w / 2),
-  feet: 92,
-};
-const DOOR = {
-  x: door.x + Math.round(door.w / 2),
-  feet: door.y + door.h,
-};
+export const createGirl = (path) => ({ mode: `stand`, progress: 0, path });
 
-// Её путь (точки ног): от ставня до порога двери.
-// Свет лампы ложится ровно на эту дорожку (src/render/light.js).
-export const GIRL_PATH = [
-  [START.x, START.feet],
-  [DOOR.x, DOOR.feet],
-];
+export const resetGirl = (girl, path = girl.path) =>
+  Object.assign(girl, createGirl(path));
 
-export const createGirl = () => ({ mode: `stand`, progress: 0 });
-
-export const resetGirl = (girl) => Object.assign(girl, createGirl());
-
-export const updateGirl = (girl, { lampOn }, dt) => {
-  if (girl.mode === `stand` && lampOn) girl.mode = `walk`;
+export const updateGirl = (girl, { ready }, dt) => {
+  if (girl.mode === `stand` && ready) girl.mode = `walk`;
   if (girl.mode !== `walk`) return;
 
-  const distance = START.x - DOOR.x;
+  const [[fromX], [toX]] = girl.path;
+  const distance = Math.abs(fromX - toX);
   girl.progress = Math.min(1, girl.progress + (SPEED * dt) / distance);
   if (girl.progress === 1) girl.mode = `gone`;
 };
@@ -85,9 +70,9 @@ const frames = (sheet) => Math.max(1, Math.floor(sheet.width / CELL.w));
 // проёма, и растворяется в нём.
 const FADE_FROM = 0.92;
 
-const feetOf = ({ progress }) => ({
-  feetX: Math.round(START.x + (DOOR.x - START.x) * progress),
-  feetY: Math.round(START.feet + (DOOR.feet - START.feet) * progress),
+const feetOf = ({ progress, path: [[fromX, fromFeet], [toX, toFeet]] }) => ({
+  feetX: Math.round(fromX + (toX - fromX) * progress),
+  feetY: Math.round(fromFeet + (toFeet - fromFeet) * progress),
 });
 
 // Где она в кадре: щуп на ней ничего не найдёт — её нет в DOM.
@@ -117,10 +102,11 @@ export const drawGirl = (ctx, girl, time, sheets) => {
   const set = fading ? sheets.dark : walking ? sheets.lit : sheets;
   if (walking) {
     // Кадр шага привязан к пройденному пути, а не ко времени:
-    // ноги не скользят по полу.
-    const walked = (START.x - DOOR.x) * progress;
+    // ноги не скользят по полу. Лист нарисован лицом вправо.
+    const [[fromX], [toX]] = girl.path;
+    const walked = Math.abs(fromX - toX) * progress;
     const frame = Math.floor(walked / STEP) % frames(set.walk);
-    drawFrame(ctx, set.walk, frame, feetX, feetY, true);
+    drawFrame(ctx, set.walk, frame, feetX, feetY, toX < fromX);
     return;
   }
 

@@ -69,6 +69,7 @@ const native = {
   observe: MutationObserver.prototype.observe,
   takeRecords: MutationObserver.prototype.takeRecords,
   setTimeout: win.setTimeout,
+  scrollTo: win.scrollTo,
   createObjectURL: URL.createObjectURL,
   then: Promise.prototype.then,
   errorText: Error.prototype.toString,
@@ -142,10 +143,14 @@ const buildRoom = ({ html, css }) => {
   apply(native.setHtml, apply(native.body, doc, []), [html]);
 };
 
-const start = (port, { room, things, files, trace }) => {
+const start = (port, { room, things, files, view, trace }) => {
   const send = (message) => apply(native.post, port, [message]);
 
   buildRoom(room);
+  // Станция — все комнаты друг под другом. На экране одна: прокручиваем
+  // к ней, и рамки её вещей совпадают с пикселями сцены.
+  const scroll = () => apply(native.scrollTo, win, [0, view]);
+  scroll();
   const find = (selector) => apply(native.querySelector, doc, [selector]);
   const roomRoot = find(room.root);
   const bound = bindThings(things, find);
@@ -228,7 +233,13 @@ const start = (port, { room, things, files, trace }) => {
 
   // iframe в отдельном процессе получает свой размер от браузера не сразу:
   // до этого раскладки нет и все рамки 0×0. Пришёл размер — новый снимок.
-  apply(native.listen, win, [`resize`, scheduleSnapshot]);
+  apply(native.listen, win, [
+    `resize`,
+    () => {
+      scroll();
+      scheduleSnapshot();
+    },
+  ]);
 
   // Пульс: пропал дольше секунды — игра считает песочницу зависшей.
   const pulse = () => {

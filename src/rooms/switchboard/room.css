@@ -1,17 +1,8 @@
 /* CSS станции для щитовой. Координаты — в пикселях сцены 320×180:
    iframe песочницы ровно такого размера, поэтому рамки из настоящей
    вёрстки сразу ложатся на картинку. Места лампы и двери — те же,
-   что в assets/sprites/bg-switchroom.json. */
-body {
-  margin: 0;
-}
-
-.room {
-  position: relative;
-  width: 320px;
-  height: 180px;
-}
-
+   что в assets/sprites/bg-switchroom.json. Общие правила комнат —
+   в src/station.js. */
 .lamp {
   position: absolute;
   left: 86px;
@@ -25,7 +16,7 @@ body {
   background-color: #579af3;
 }
 
-.door {
+.switchboard .door {
   position: absolute;
   left: 58px;
   top: 39px;

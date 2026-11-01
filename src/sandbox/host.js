@@ -111,6 +111,7 @@ export const createSandbox = ({
   room,
   things,
   solvedFiles,
+  view,
   onSnapshot,
   onTrace,
   onError,
@@ -130,7 +131,7 @@ export const createSandbox = ({
     preview = launch({
       origin: sandboxOrigin(index),
       container: previewContainer,
-      hello: { room, things, files: solvedFiles() },
+      hello: { room, things, files: solvedFiles(), view: view() },
       messages: {
         matches: ({ id, results }) => {
           waiting.get(id)?.(results);
@@ -161,7 +162,7 @@ export const createSandbox = ({
       origin: sandboxOrigin(index),
       container: worldContainer,
       // Мир записывает, что делает код игрока, — для показа по шагам.
-      hello: { room, things, files, trace: true },
+      hello: { room, things, files, view: view(), trace: true },
       messages: {
         snapshot: ({ world }) => onSnapshot(world),
         trace: ({ event }) => onTrace(event),
@@ -185,5 +186,7 @@ export const createSandbox = ({
     });
 
   startPreview();
-  return { run, query };
+  // Другое место — другие решённые файлы и другая прокрутка: превью
+  // прогревается заново.
+  return { run, query, refresh: startPreview };
 };

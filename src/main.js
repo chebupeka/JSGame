@@ -14,18 +14,21 @@ import { loadProgress, saveProgress } from "./progress.js";
 import { drawScene } from "./render/scene.js";
 import { loadSprites } from "./render/sprites.js";
 import { STENCIL_FONT, plateText } from "./render/stencil.js";
-import {
-  SWITCHBOARD_NAMES,
-  SWITCHBOARD_ROOM,
-  SWITCHBOARD_THINGS,
-} from "./rooms/switchboard/manifest.js";
-import { hasClass } from "./rooms/switchboard/things.js";
 import { createSandbox } from "./sandbox/host.js";
 import { LAYOUTS, applyLayout } from "./screen/layout.js";
 import { SCENE, applyFrame, watchFrame } from "./screen/scale.js";
 import { createSettingsPage, loadSettings } from "./settings.js";
 import { createSound } from "./sound/station.js";
-import { LAMP_TASK } from "./tasks/lamp.js";
+import {
+  PLACES,
+  STATION,
+  STATION_NAMES,
+  STATION_THINGS,
+  currentPlace,
+  nextPlace,
+  solvedBefore,
+  viewOf,
+} from "./station.js";
 import { createEditor } from "./terminal/editor.js";
 import { isInside } from "./terminal/lever.js";
 import { setNotch } from "./terminal/marks.js";
@@ -33,7 +36,6 @@ import { errorNotes, rawNote, showNotes } from "./terminal/notes.js";
 import { SELECTOR_MARKS, WORDS } from "./terminal/words.js";
 import { createReplay } from "./trace/replay.js";
 
-const TASK = LAMP_TASK;
 const SMALL = `Разверни окно или нажми F11.`;
 const HANG = `Код не закончился и за секунду. Похоже на бесконечный цикл. Станция перезапущена, можно запускать снова.`;
 const HALT = `Цикл крутился без передышки дольше секунды, и сторож его прервал. Похоже на бесконечный цикл: станет ли его условие когда-нибудь ложным?`;
@@ -43,12 +45,21 @@ const frame = document.querySelector(`#frame`);
 const canvas = document.querySelector(`#scene`);
 const ctx = canvas.getContext(`2d`);
 
+// Прогресс: решённые файлы работают на мониторах и в мире после F5,
+// черновик не теряется. Место — первое с нерешённой задачей.
+const progress = loadProgress();
+let place = currentPlace(progress.solved);
+let task = place.task;
+
 const state = {
   layout: LAYOUTS.large,
   scale: 4,
   overlays: [],
   world: null,
-  girl: createGirl(),
+  place,
+  girl: createGirl(place.path),
+  // Переход в следующее место после успеха: тишина, затемнение, комната.
+  transition: null,
   lever: { closed: false, bounced: null },
   breaker: { tripped: false },
   // Когда песочница перестала отвечать (мир застыл) и когда клацнул сторож.
@@ -65,8 +76,8 @@ const render = (time = performance.now()) => drawScene(ctx, state, time);
 
 // Пометка при входе в задачу и последняя открытая подсказка.
 const entryNotes = () => [
-  ...TASK.notes,
-  ...TASK.hints.slice(0, state.hint).slice(-1),
+  ...task.notes,
+  ...task.hints.slice(0, state.hint).slice(-1),
 ];
 
 // На ×3 и меньше код мельче 12 px: игра работает, но лучше крупнее.
@@ -80,7 +91,7 @@ const refreshNotes = () =>
 // Подсказки бесплатные, ничего не считается. Разбор ошибки при этом
 // остаётся на месте, подсказка встаёт под ним.
 document.querySelector(`#notes`).addEventListener(`click`, () => {
-  state.hint = Math.min(TASK.hints.length, state.hint + 1);
+  state.hint = Math.min(task.hints.length, state.hint + 1);
   refreshNotes();
 });
 
@@ -117,7 +128,7 @@ const showError = (error) => {
   const explained = explainError(located, {
     code: lastRun,
     typed,
-    ...SWITCHBOARD_NAMES,
+    ...STATION_NAMES,
   });
 
   state.notes = errorNotes(explained, () => {
@@ -181,7 +192,7 @@ const replay = createReplay({
     state.flash = { keys, from, until };
   },
   onSlowShown: () => {
-    progress.shown[TASK.file] = true;
+    progress.shown[task.file] = true;
     saveProgress(progress);
   },
   onPulse: (rect) => sound.play(`pulse`, { pan: panOf(rect) }),
@@ -211,17 +222,24 @@ state.trace = replay.view;
 // коде правее твоих, map() возвращает их назад.
 let marked = null;
 const unmark = (place) =>
-  marked && place.file === TASK.file && place.column
+  marked && place.file === task.file && place.column
     ? { ...place, column: marked.map(place.line, place.column) }
     : place;
+
+// Файлы станции, которые работают и без запуска: решённые до этого места
+// и решённый файл самого места.
+const stationFiles = () => [
+  ...solvedBefore(place, progress.solved),
+  ...(state.solved ? [{ name: task.file, code: state.solved }] : []),
+];
 
 const sandbox = createSandbox({
   worldContainer: document.querySelector(`#sandbox`),
   previewContainer: document.querySelector(`#preview`),
-  room: SWITCHBOARD_ROOM,
-  things: SWITCHBOARD_THINGS,
-  // Решённые файлы станции: в главе 1 их ещё нет.
-  solvedFiles: () => [],
+  room: STATION,
+  things: STATION_THINGS,
+  solvedFiles: () => stationFiles(),
+  view: () => viewOf(place),
   onSnapshot: (world) => replay.receive({ kind: `world`, world }),
   onTrace: (event) => replay.receive(event),
   onError: (error) => replay.receive({ kind: `error`, error: unmark(error) }),
@@ -253,15 +271,6 @@ const [sprites] = await Promise.all([
 state.sprites = sprites;
 ctx.imageSmoothingEnabled = false;
 
-// Прогресс: решённый файл работает на мониторе и в мире после F5,
-// черновик не теряется.
-const progress = loadProgress();
-state.solved = progress.solved[TASK.file] ?? null;
-if (state.solved) {
-  state.girl.mode = `gone`;
-  state.notes = [];
-}
-
 // Запуск — как перезагрузка питания: чистая страница, затем твой код.
 // Пока задача не решена, она снова стоит у ставня и ждёт, что получится.
 // Первый запуск задачи показывается медленно, и свет проседает.
@@ -277,9 +286,12 @@ const run = ({ slow = false } = {}) => {
   marked = instrument(lastRun);
   editor.dispatch({ effects: setNotch.of(null) });
 
-  const first = !progress.shown[TASK.file];
-  replay.start({ slow: slow || first, dip: first, marked, file: TASK.file });
-  sandbox.run([{ name: TASK.file, code: marked.code }]);
+  const first = !progress.shown[task.file];
+  replay.start({ slow: slow || first, dip: first, marked, file: task.file });
+  sandbox.run([
+    ...solvedBefore(place, progress.solved),
+    { name: task.file, code: marked.code },
+  ]);
   sound.play(`lever`);
   sound.play(`rise`);
 };
@@ -289,27 +301,31 @@ const run = ({ slow = false } = {}) => {
 // секунд игра ничего не предлагает — можно просто смотреть.
 const succeed = () => {
   state.solved = lastRun;
-  progress.solved[TASK.file] = lastRun;
+  progress.solved[task.file] = lastRun;
   saveProgress(progress);
   state.notes = [];
   refreshNotes();
+
+  const next = nextPlace(place);
+  if (next) state.transition = { start: performance.now(), next };
 };
 
 let saveDraft = null;
 const keepDraft = () => {
   clearTimeout(saveDraft);
   saveDraft = setTimeout(() => {
-    progress.drafts[TASK.file] = editor.state.doc.toString();
+    progress.drafts[task.file] = editor.state.doc.toString();
     saveProgress(progress);
   }, 500);
 };
 
-document.querySelector(`#nameplate`).textContent = TASK.file;
+const nameplate = document.querySelector(`#nameplate`);
+nameplate.textContent = task.file;
 applyLayout(state.layout);
 let live = null;
-const editor = createEditor(
+const { view: editor, load: loadCode } = createEditor(
   document.querySelector(`#code`),
-  progress.drafts[TASK.file] ?? TASK.code,
+  progress.drafts[task.file] ?? task.code,
   {
     onRun: run,
     onChange: (update) => {
@@ -531,30 +547,72 @@ canvas.addEventListener(`pointerleave`, () => {
   unhover();
 });
 
-// Первая загрузка: комната и уже решённые файлы станции. Без них лампа
-// не горит.
-lastRun = state.solved ?? ``;
-replay.start({ slow: false, dip: false, marked: null, file: TASK.file });
-sandbox.run(state.solved ? [{ name: TASK.file, code: state.solved }] : []);
+// Вход в место: его задача в терминале, она у ставня, станция с уже
+// решёнными файлами. Решено и это место — она уже ушла, файл на мониторе.
+const enter = (next) => {
+  place = next;
+  task = next.task;
+  state.place = next;
+  state.solved = progress.solved[task.file] ?? null;
+  state.world = null;
+  state.wires = [];
+  state.hint = 0;
+  state.notes = state.solved ? [] : null;
+  state.lever.closed = false;
+  state.breaker.tripped = false;
+  resetGirl(state.girl, next.path);
+  if (state.solved) state.girl.mode = `gone`;
+
+  nameplate.textContent = task.file;
+  loadCode(progress.drafts[task.file] ?? task.code);
+  refreshNotes();
+  live.schedule();
+
+  lastRun = state.solved ?? ``;
+  marked = null;
+  sandbox.refresh();
+  replay.start({ slow: false, dip: false, marked: null, file: task.file });
+  sandbox.run(stationFiles());
+  editor.focus();
+};
+
+// Переход после успеха: несколько секунд ничего не происходит — можно
+// просто смотреть. Потом комната темнеет, и вот уже другое место:
+// прошло время.
+const QUIET = 4000;
+const FADE = 800;
+const transitionDim = (now) => {
+  const t = now - state.transition.start - QUIET;
+  if (t < 0) return 0;
+  if (t < FADE) return t / FADE;
+  if (!state.transition.entered) {
+    state.transition.entered = true;
+    enter(state.transition.next);
+  }
+  if (t < 2 * FADE) return 2 - t / FADE;
+  state.transition = null;
+  return 0;
+};
+
+enter(place);
 
 const shownote = document.querySelector(`#shownote`);
 let last = performance.now();
 const tick = (now) => {
-  const lamp = state.world?.things.lamp;
-  const lampOn = !!state.world?.room.present && hasClass(lamp, `on`);
+  const ready = place.ready(state.world);
   const before = state.girl.mode;
   // Код занят — мир застыл: она посреди шага, импульсы на месте.
   const frozen = state.stalled !== null;
 
   if (!frozen) {
     replay.update(now);
-    updateGirl(state.girl, { lampOn }, Math.min(0.1, (now - last) / 1000));
+    updateGirl(state.girl, { ready }, Math.min(0.1, (now - last) / 1000));
   }
   shownote.hidden = !replay.view.slow;
   const left = before !== `gone` && state.girl.mode === `gone`;
   if (left && !state.solved) succeed();
   last = now;
-  state.dim = dimAt(now);
+  state.dim = Math.max(dimAt(now), state.transition ? transitionDim(now) : 0);
   render(frozen ? state.stalled : now);
   requestAnimationFrame(tick);
 };
@@ -562,5 +620,13 @@ requestAnimationFrame(tick);
 
 if (import.meta.env.DEV) {
   const { installDevTools } = await import(`./dev/tools.js`);
-  installDevTools({ state, render, setLayout, canvas, editor, sandbox });
+  installDevTools({
+    state,
+    render,
+    setLayout,
+    canvas,
+    editor,
+    sandbox,
+    goto: (key) => enter(PLACES.find((each) => each.key === key)),
+  });
 }

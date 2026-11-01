@@ -1,5 +1,5 @@
 import layout from "../../../assets/sprites/bg-switchroom.json" with { type: "json" };
-import { grey, white } from "../../render/palette.js";
+import { grey } from "../../render/palette.js";
 import { rect } from "../../render/pixels.js";
 
 // Щитовая: фон от Codex (assets/sprites/bg-switchroom.png) и места на нём,
@@ -13,15 +13,6 @@ export const SWITCHBOARD = {
   monitor: layout.monitor,
   screen: layout.screen,
   floor: { top: layout.floorY, bottom: 106 },
-};
-
-const { shutter } = SWITCHBOARD;
-
-// Дневной свет снаружи: рулонный ставень не доходит до пола, и из-под него
-// пробивается тонкая полоска света, как под дверью. Рисуется поверх всего
-// в комнате — его не делал игрок. Ночью её не будет.
-export const drawDaylight = (ctx) => {
-  rect(ctx, white, shutter.x + 2, shutter.y + shutter.h - 1, shutter.w - 4, 1);
 };
 
 // Если игрок стёр комнату (`document.body.innerHTML = ``;`), рисовать нечего:
