@@ -1,4 +1,10 @@
-import { bindThings, locate, matchSelectors, snapshot } from "./core.js";
+import {
+  bindThings,
+  callSite,
+  locate,
+  matchSelectors,
+  snapshot,
+} from "./core.js";
 
 // Агент песочницы. Загружается первым и сохраняет настоящие функции
 // браузера до кода игрока. Безопасность даёт отдельный origin, а это —
@@ -6,6 +12,10 @@ import { bindThings, locate, matchSelectors, snapshot } from "./core.js";
 // не ломал снимки комнаты. Поэтому здесь нет for-of, spread и методов
 // массивов, а всё вызывается через сохранённый Reflect.apply.
 const GAME_ORIGINS = [`http://localhost:5173`];
+
+// Сколько событий показа по шагам пишем за запуск. Дальше показывать
+// всё равно нечего: цикл на тысячу шагов медленно не смотрят.
+const LIMIT = 300;
 
 const apply = Reflect.apply;
 const describe = Object.getOwnPropertyDescriptor;
@@ -17,10 +27,14 @@ const doc = document;
 const ownOrigin = location.origin;
 const NativeBlob = Blob;
 const NativeMutationObserver = MutationObserver;
+const NativeError = Error;
+const define = Object.defineProperty;
 
 const native = {
   querySelector: Document.prototype.querySelector,
   querySelectorAll: Document.prototype.querySelectorAll,
+  elementQuery: Element.prototype.querySelector,
+  elementQueryAll: Element.prototype.querySelectorAll,
   listLength: getter(NodeList.prototype, `length`),
   listItem: NodeList.prototype.item,
   id: getter(Element.prototype, `id`),
@@ -51,6 +65,7 @@ const native = {
   unlisten: EventTarget.prototype.removeEventListener,
   post: MessagePort.prototype.postMessage,
   observe: MutationObserver.prototype.observe,
+  takeRecords: MutationObserver.prototype.takeRecords,
   setTimeout: win.setTimeout,
   createObjectURL: URL.createObjectURL,
   then: Promise.prototype.then,
@@ -102,6 +117,15 @@ const describeError = (error) => {
   };
 };
 
+// Метка инструкции, которую ставит src/code/instrument.js: `__s(n);`.
+// Свойство неперезаписываемое — код игрока не сломает показ по шагам.
+let onStep = null;
+define(win, `__s`, {
+  value: (n) => {
+    if (onStep) onStep(n);
+  },
+});
+
 const buildRoom = ({ html, css }) => {
   const style = apply(native.createElement, doc, [`style`]);
   apply(native.setText, style, [css]);
@@ -109,7 +133,7 @@ const buildRoom = ({ html, css }) => {
   apply(native.setHtml, apply(native.body, doc, []), [html]);
 };
 
-const start = (port, { room, things, files }) => {
+const start = (port, { room, things, files, trace }) => {
   const send = (message) => apply(native.post, port, [message]);
 
   buildRoom(room);
@@ -125,15 +149,16 @@ const start = (port, { room, things, files }) => {
   }
   const keyOf = (element) => apply(native.mapGet, keys, [element]);
 
-  const queryAll = (selector) => {
-    const list = apply(native.querySelectorAll, doc, [selector]);
-    const found = [];
+  const items = (list) => {
+    const out = [];
     const length = apply(native.listLength, list, []);
     for (let i = 0; i < length; i++) {
-      found[i] = apply(native.listItem, list, [i]);
+      out[i] = apply(native.listItem, list, [i]);
     }
-    return found;
+    return out;
   };
+  const queryAll = (selector) =>
+    items(apply(native.querySelectorAll, doc, [selector]));
 
   // Превью спрашивает, что находят селекторы. Отвечаем настоящим
   // querySelectorAll — только чтение, комната от этого не меняется.
@@ -151,12 +176,24 @@ const start = (port, { room, things, files }) => {
   ]);
   apply(native.portStart, port, []);
 
-  const sendSnapshot = () =>
+  const world = () => ({
+    room: { present: !!roomRoot && read.isConnected(roomRoot) },
+    things: snapshot(things, bound, read),
+  });
+  const sendSnapshot = () => send({ type: `snapshot`, world: world() });
+
+  // Показ по шагам: что делал код игрока и в каком порядке. Только
+  // в мире — в превью кода игрока нет.
+  let recorded = 0;
+  const record = (build) => {
+    if (!trace || recorded > LIMIT) return;
+    recorded += 1;
     send({
-      type: `snapshot`,
-      room: { present: !!roomRoot && read.isConnected(roomRoot) },
-      things: snapshot(things, bound, read),
+      type: `trace`,
+      event: recorded > LIMIT ? { kind: `limit` } : build(),
     });
+  };
+  const changed = () => record(() => ({ kind: `change`, world: world() }));
 
   // Любое изменение страницы — новый снимок, не чаще раза за такт.
   let pending = false;
@@ -171,7 +208,11 @@ const start = (port, { room, things, files }) => {
       0,
     ]);
   };
-  apply(native.observe, new NativeMutationObserver(scheduleSnapshot), [
+  const observer = new NativeMutationObserver(() => {
+    changed();
+    scheduleSnapshot();
+  });
+  apply(native.observe, observer, [
     apply(native.root, doc, []),
     { attributes: true, childList: true, subtree: true, characterData: true },
   ]);
@@ -194,6 +235,79 @@ const start = (port, { room, things, files }) => {
   for (let i = 0; i < files.length; i++) {
     const blob = new NativeBlob([files[i].code], { type: `text/javascript` });
     urls[i] = apply(native.createObjectURL, URL, [blob]);
+  }
+  const fileOf = (url) => {
+    for (let i = 0; i < urls.length; i++) {
+      if (urls[i] === url) return files[i].name;
+    }
+    return null;
+  };
+
+  // Поиск: что нашёл и где в коде его вызвали. Только для кода игрока —
+  // у вызова без blob-файла в стеке места нет, и он не пишется.
+  const found = (selector, result, all) => {
+    const site = callSite(new NativeError().stack);
+    if (!site) return;
+
+    const elements = all ? items(result) : result ? [result] : [];
+    const keys = [];
+    const rects = [];
+    for (let i = 0; i < elements.length && i < 8; i++) {
+      keys[i] = keyOf(elements[i]) ?? null;
+      rects[i] = read.rect(elements[i]);
+    }
+    record(() => ({
+      kind: `find`,
+      file: fileOf(site.url),
+      line: site.line,
+      column: site.column,
+      selector: typeof selector === `string` ? selector : null,
+      all,
+      count: elements.length,
+      keys,
+      rects,
+    }));
+  };
+
+  // Обёртка зовёт настоящий метод с теми же аргументами, поэтому
+  // результат и текст ошибок те же. Запись ошибкой не кончится никогда.
+  const wrapFind = (proto, name, original, all) => {
+    const wrapper = {
+      [name]() {
+        const result = apply(original, this, arguments);
+        try {
+          found(arguments[0], result, all);
+        } catch {
+          // Показ без этого шага лучше, чем сломанный код игрока.
+        }
+        return result;
+      },
+    }[name];
+    define(proto, name, {
+      value: wrapper,
+      writable: true,
+      enumerable: true,
+      configurable: true,
+    });
+  };
+
+  if (trace) {
+    const { prototype: page } = Document;
+    const { prototype: element } = Element;
+    wrapFind(page, `querySelector`, native.querySelector, false);
+    wrapFind(page, `querySelectorAll`, native.querySelectorAll, true);
+    wrapFind(element, `querySelector`, native.elementQuery, false);
+    wrapFind(element, `querySelectorAll`, native.elementQueryAll, true);
+
+    // Всё, что поменяла прошлая инструкция, — её шаг, до начала этой.
+    // Изменения последней инструкции заберёт сам наблюдатель.
+    onStep = (n) => {
+      if (apply(native.takeRecords, observer, []).length) {
+        changed();
+        scheduleSnapshot();
+      }
+      record(() => ({ kind: `step`, n }));
+    };
   }
 
   const runFrom = (i) => {

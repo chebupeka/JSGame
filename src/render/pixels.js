@@ -24,3 +24,29 @@ export const ditherShape = (ctx, color, top, bottom, rows, density) => {
     }
   }
 };
+
+// Растр одной плотности на весь прямоугольник — одним fillRect. Узор 4×4
+// тот же, что у isLit, и так же привязан к сетке сцены (узор холста
+// начинается в её углу).
+const patterns = new Map();
+
+export const ditherFill = (ctx, color, density, x, y, w, h) => {
+  const lit = Math.min(16, Math.ceil(density * 16 - 0.5));
+  if (lit <= 0) return;
+
+  const id = `${color} ${lit}`;
+  if (!patterns.has(id)) {
+    const tile = document.createElement(`canvas`);
+    tile.width = 4;
+    tile.height = 4;
+    const tileCtx = tile.getContext(`2d`);
+    for (let ty = 0; ty < 4; ty++) {
+      for (let tx = 0; tx < 4; tx++) {
+        if (isLit(tx, ty, lit / 16)) dot(tileCtx, color, tx, ty);
+      }
+    }
+    patterns.set(id, ctx.createPattern(tile, `repeat`));
+  }
+
+  rect(ctx, patterns.get(id), x, y, w, h);
+};

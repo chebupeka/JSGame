@@ -20,6 +20,16 @@ export const locate = (stack, url) => {
   return null;
 };
 
+// Где код игрока вызвал обёртку агента: первый кадр стека из blob-файла.
+// Кадры самого агента не из blob и пропускаются. V8 пишет место вызова
+// метода по его имени: у `document.querySelector(…)` это `querySelector`.
+export const callSite = (stack) => {
+  if (typeof stack !== `string`) return null;
+
+  const match = apply(exec, /(blob:[^\s()]+?):(\d+):(\d+)/, [stack]);
+  return match ? { url: match[1], line: +match[2], column: +match[3] } : null;
+};
+
 // Реестр вещей: ключ манифеста → сам элемент. Вещь привязана к элементу,
 // а не к селектору, поэтому после `lamp.id = 'x'` лампа не теряется.
 export const bindThings = (things, find) => {

@@ -91,7 +91,9 @@ export const createSandbox = ({
   things,
   solvedFiles,
   onSnapshot,
+  onTrace,
   onError,
+  onDone,
   onHang,
 }) => {
   let index = 0;
@@ -135,10 +137,13 @@ export const createSandbox = ({
     world = launch({
       origin: sandboxOrigin(index),
       container: worldContainer,
-      hello: { room, things, files },
+      // Мир записывает, что делает код игрока, — для показа по шагам.
+      hello: { room, things, files, trace: true },
       messages: {
-        snapshot: ({ room, things }) => onSnapshot({ room, things }),
+        snapshot: ({ world }) => onSnapshot(world),
+        trace: ({ event }) => onTrace(event),
         error: (error) => onError(error),
+        done: () => onDone(),
       },
       onHang: worldHung,
     });

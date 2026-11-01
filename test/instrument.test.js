@@ -1,0 +1,172 @@
+import assert from "node:assert/strict";
+import { test } from "node:test";
+import vm from "node:vm";
+
+import { instrument } from "../src/code/instrument.js";
+
+// Тот же V8, что в Chrome: выполняем код с метками и без, сравниваем
+// текст ошибки и место. document — заглушка: querySelector находит только
+// #lamp, у неё есть classList с add.
+const station = () => {
+  const lamp = { classList: { add: () => {} }, style: {} };
+  return {
+    querySelector: (selector) => (selector === `#lamp` ? lamp : null),
+  };
+};
+
+const runIn = (code) => {
+  const marks = [];
+  const context = vm.createContext({
+    document: station(),
+    __s: (n) => marks.push(n),
+  });
+  try {
+    vm.runInContext(code, context, { filename: `player.js` });
+    return { marks };
+  } catch (error) {
+    const [, line, column] = error.stack.match(/player\.js:(\d+):(\d+)/) ?? [];
+    return { marks, text: String(error), line: +line, column: +column };
+  }
+};
+
+const compare = (code) => {
+  const plain = runIn(code);
+  const marked = instrument(code);
+  const traced = runIn(marked.code);
+  return { plain, traced, marked };
+};
+
+const HEAD = `// Хочу, чтобы в щитовой загорелась лампа.\n`;
+
+const fragments = [
+  `document.querySelector(\`#lamb\`).classList.add(\`on\`);`,
+  `document.querySelector(\`#lamp\`).classList.ad(\`on\`);`,
+  `documnet.querySelector(\`#lamp\`);`,
+  `const lamp = document.querySelector(\`#lamb\`);\nlamp.classList.add(\`on\`);`,
+  `const x = 1;\nx = 2;`,
+  `let a = 1; let b = a.nope.deeper;`,
+  `if (true) { document.querySelector(\`#lamb\`).style.color = \`red\`; }`,
+  `document\n  .querySelector(\`#frame-pickr\`)\n  .addEventListener(\`input\`, (evt) => {\n    evt.target.value;\n  });`,
+  `document.querySelector(\`#frame-pickr\`).addEventListener(\`input\`, (evt) => { document.querySelector(\`.frame\`).style.backgroundColor = evt.target.value; });`,
+  `for (let i = 0; i < 2; i++) { i.nope.x; }`,
+];
+
+for (const fragment of fragments) {
+  test(`метки не меняют ошибку: ${fragment.split(`\n`)[0].slice(0, 40)}`, () => {
+    const code = HEAD + fragment;
+    const { plain, traced, marked } = compare(code);
+    assert.equal(marked.code.split(`\n`).length, code.split(`\n`).length);
+    assert.equal(traced.text, plain.text);
+    assert.equal(traced.line, plain.line);
+    if (plain.column) {
+      assert.equal(marked.map(traced.line, traced.column), plain.column);
+    }
+  });
+}
+
+test(`опечатка в методе — дословный текст V8`, () => {
+  const { traced } = compare(
+    HEAD + `document.querySelector(\`#lamp\`).classList.ad(\`on\`);`,
+  );
+  assert.equal(
+    traced.text,
+    `TypeError: document.querySelector(...).classList.ad is not a function`,
+  );
+});
+
+test(`#lamb с задачей в первой строке — 2:32`, () => {
+  const { traced, marked } = compare(
+    HEAD + `document.querySelector(\`#lamb\`).classList.add(\`on\`);`,
+  );
+  assert.deepEqual(
+    [traced.line, marked.map(traced.line, traced.column)],
+    [2, 32],
+  );
+});
+
+test(`код из §4 с #frame-pickr — 4:3, однострочник — 2:39`, () => {
+  const ladder = compare(HEAD + fragments[7]);
+  assert.deepEqual(
+    [
+      ladder.traced.line,
+      ladder.marked.map(ladder.traced.line, ladder.traced.column),
+    ],
+    [4, 3],
+  );
+  const oneLine = compare(HEAD + fragments[8]);
+  assert.deepEqual(
+    [
+      oneLine.traced.line,
+      oneLine.marked.map(oneLine.traced.line, oneLine.traced.column),
+    ],
+    [2, 39],
+  );
+});
+
+test(`строка const x = 1 получает метку и кромку`, () => {
+  const { marked, traced } = compare(`const x = 1;`);
+  assert.deepEqual(marked.statements, [
+    { n: 0, line: 1, lines: [1], waits: [] },
+  ]);
+  assert.deepEqual(traced.marks, [0]);
+});
+
+test(`строки тела обработчика не горят при запуске — они ждут`, () => {
+  const { marked } = compare(fragments[7]);
+  assert.deepEqual(marked.statements[0].lines, [1, 2, 3, 5]);
+  assert.deepEqual(marked.statements[0].waits, [4]);
+});
+
+// Место вызова — как его пишет V8 в стеке обёртки агента.
+const sitesOf = (code) => {
+  const sites = [];
+  const where = () => {
+    const [, line, column] = new Error().stack.match(/player\.js:(\d+):(\d+)/);
+    sites.push([+line, +column]);
+    return { classList: { add: () => {} } };
+  };
+  const context = vm.createContext({
+    document: { querySelector: where },
+    __s: () => {},
+  });
+  vm.runInContext(instrument(code).code, context, { filename: `player.js` });
+  return sites;
+};
+
+test(`вызов по месту из стека: сохранён ли результат`, () => {
+  const cases = [
+    [`document.querySelector(\`#lamp\`).classList.add(\`on\`);`, false, [1]],
+    [`const lamp = document.querySelector(\`#lamp\`);`, true, [1]],
+    [
+      `let lamp;
+lamp = document.querySelector(\`#lamp\`);`,
+      true,
+      [2],
+    ],
+    [
+      `document
+  .querySelector(\`#lamp\`)
+  .classList.add(\`on\`);`,
+      false,
+      [1, 2],
+    ],
+  ];
+  for (const [code, kept, lines] of cases) {
+    const [[line, column]] = sitesOf(code);
+    assert.deepEqual(instrument(code).callAt(line, column), { kept, lines });
+  }
+});
+
+test(`без скобок после if метку не ставим — смысл кода не меняется`, () => {
+  const { marked } = compare(`if (false) document.querySelector(\`#lamb\`).x;`);
+  assert.equal(marked.statements.length, 1);
+  assert.equal(
+    compare(`if (false) document.querySelector(\`#lamb\`).x;`).traced.text,
+    undefined,
+  );
+});
+
+test(`код, который не разобрался, идёт без меток`, () => {
+  const code = `document.querySelector(\`#lamp\`.classList.add(\`on\`);`;
+  assert.equal(instrument(code).code, code);
+});

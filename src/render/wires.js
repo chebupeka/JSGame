@@ -1,15 +1,13 @@
-import { blue, blueGlow } from "./palette.js";
+import { blue, blueGlow, blueLight } from "./palette.js";
 import { dot, isLit } from "./pixels.js";
 
-// Провод от гнезда терминала к вещи. Провисает, как кабели на референсе.
-// Плотность — растр Байера: 0.25 — задумано (пока печатаешь), 0.5 — ждёт,
-// 1 — ток. Прерывистый провод — поиск внутри функции: «буду искать каждый
-// раз, когда сработает».
-export const drawWire = (ctx, [ax, ay], [bx, by], { density, dashed }) => {
+// Точки провода от гнезда терминала к вещи. Провисает, как кабели
+// на референсе.
+const wirePoints = ([ax, ay], [bx, by]) => {
   const sag = 8 + Math.abs(bx - ax) * 0.12;
   const steps = Math.ceil(Math.hypot(bx - ax, by - ay) * 2) + 1;
+  const points = [];
   let previous = null;
-  let length = 0;
 
   for (let step = 0; step <= steps; step++) {
     const t = step / steps;
@@ -18,9 +16,32 @@ export const drawWire = (ctx, [ax, ay], [bx, by], { density, dashed }) => {
     if (previous === `${x},${y}`) continue;
 
     previous = `${x},${y}`;
-    length += 1;
-    if (dashed && Math.floor(length / 3) % 2) continue;
+    points.push([x, y]);
+  }
+  return points;
+};
+
+// Провод. Плотность — растр Байера: 0.25 — задумано (пока печатаешь),
+// 0.5 — ждёт, 1 — ток. Прерывистый провод — поиск внутри функции: «буду
+// искать каждый раз, когда сработает». upTo — докуда добежал импульс,
+// head — его светлая голова.
+export const drawWire = (
+  ctx,
+  from,
+  to,
+  { density, dashed = false, upTo = 1, head = false },
+) => {
+  const points = wirePoints(from, to);
+  const end = Math.round(points.length * upTo);
+
+  points.slice(0, end).forEach(([x, y], i) => {
+    if (dashed && Math.floor((i + 1) / 3) % 2) return;
     if (isLit(x, y, density)) dot(ctx, blue, x, y);
+  });
+  if (head) {
+    points
+      .slice(Math.max(0, end - 3), end)
+      .forEach(([x, y]) => dot(ctx, blueLight, x, y));
   }
 };
 

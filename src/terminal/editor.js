@@ -34,13 +34,18 @@ export const createEditor = (parent, doc, { onRun, onChange }) => {
         indentOnInput(),
         indentUnit.of(`  `),
         EditorState.tabSize.of(2),
-        // Ctrl+Enter — запуск. Без Prec.highest CodeMirror вставил бы строку.
+        // Ctrl+Enter — запуск, Shift+Ctrl+Enter — запуск с медленным
+        // показом. Без Prec.highest CodeMirror вставил бы строку.
         Prec.highest(
           keymap.of([
             {
               key: `Mod-Enter`,
               run: () => {
-                onRun();
+                onRun({ slow: false });
+                return true;
+              },
+              shift: () => {
+                onRun({ slow: true });
                 return true;
               },
             },

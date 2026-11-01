@@ -17,8 +17,11 @@ export const LAYOUTS = {
     divider: { x: 150, y: 118, w: 1, h: 62 },
     notes: { x: 153, y: 119, w: 56, h: 60 },
     nameplate: { x: 5, y: 109, w: 40, h: 7 },
+    shownote: { x: 60, y: 109, w: 140, h: 7 },
     socket: { x: 213, y: 110 },
     lever: { x: 230, y: 120, w: 16, h: 32 },
+    slow: { x: 233, y: 157, w: 10, h: 7 },
+    slowplate: { x: 223, y: 165, w: 30, h: 5 },
     floor: { y: 78, h: 28 },
     gutter: 7,
     codeFont: 3.5,
@@ -39,8 +42,11 @@ export const LAYOUTS = {
     divider: { x: 129, y: 129, w: 1, h: 51 },
     notes: { x: 131, y: 130, w: 48, h: 48 },
     nameplate: { x: 5, y: 122, w: 40, h: 6 },
+    shownote: { x: 50, y: 122, w: 120, h: 6 },
     socket: { x: 178, y: 123 },
     lever: { x: 194, y: 134, w: 16, h: 32 },
+    slow: { x: 197, y: 168, w: 10, h: 6 },
+    slowplate: { x: 189, y: 174, w: 26, h: 5 },
     floor: { y: 78, h: 44 },
     gutter: 6,
     codeFont: 3,
@@ -71,4 +77,6 @@ export const applyLayout = (layout) => {
   place(document.querySelector(`#code`), layout.code);
   place(document.querySelector(`#notes`), layout.notes);
   place(document.querySelector(`#nameplate`), layout.nameplate);
+  place(document.querySelector(`#shownote`), layout.shownote);
+  place(document.querySelector(`#slowplate`), layout.slowplate);
 };

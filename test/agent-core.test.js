@@ -3,6 +3,7 @@ import { test } from "node:test";
 
 import {
   bindThings,
+  callSite,
   locate,
   matchSelectors,
   readThing,
@@ -34,6 +35,33 @@ test(`чужой файл в стеке не считается местом о�
 test(`у SyntaxError и у брошенной строки места нет`, () => {
   assert.equal(locate(`SyntaxError: Unexpected token ')'`, URL), null);
   assert.equal(locate(undefined, URL), null);
+});
+
+test(`место вызова: первый кадр из blob, кадры агента пропущены`, () => {
+  const stack = `Error
+    at found (http://127.0.0.1:5173/run/agent.js:240:24)
+    at HTMLDocument.querySelector (http://127.0.0.1:5173/run/agent.js:251:15)
+    at ${URL}:2:10`;
+  assert.deepEqual(callSite(stack), { url: URL, line: 2, column: 10 });
+});
+
+test(`место вызова: Firefox и стек без кода игрока`, () => {
+  assert.deepEqual(
+    callSite(`found@http://127.0.0.1:5173/run/agent.js:240:24
+@${URL}:3:4
+`),
+    {
+      url: URL,
+      line: 3,
+      column: 4,
+    },
+  );
+  assert.equal(
+    callSite(`Error
+    at http://127.0.0.1:5173/run/agent.js:1:1`),
+    null,
+  );
+  assert.equal(callSite(undefined), null);
 });
 
 const fakeRead = {

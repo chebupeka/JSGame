@@ -6,6 +6,7 @@ import "./style.css";
 import { parse } from "acorn";
 
 import { explainError } from "./code/errors.js";
+import { instrument } from "./code/instrument.js";
 import { createLivePreview } from "./code/live.js";
 import { findQueries } from "./code/preview.js";
 import { createGirl, girlBox, resetGirl, updateGirl } from "./girl/girl.js";
@@ -25,6 +26,7 @@ import { SCENE, applyFrame, watchFrame } from "./screen/scale.js";
 import { LAMP_TASK } from "./tasks/lamp.js";
 import { createEditor } from "./terminal/editor.js";
 import { isInside } from "./terminal/lever.js";
+import { createReplay } from "./trace/replay.js";
 import { setNotch } from "./terminal/marks.js";
 import { errorNotes, rawNote, showNotes } from "./terminal/notes.js";
 import { SELECTOR_MARKS, WORDS } from "./terminal/words.js";
@@ -124,6 +126,31 @@ const showError = (error) => {
   refreshNotes();
 };
 
+// Показ по шагам: всё, что пришло из песочницы, идёт через него — мир
+// меняется, ошибка появляется ровно тогда, когда показ до неё дошёл.
+const replay = createReplay({
+  onWorld: (world) => {
+    state.world = world;
+  },
+  onError: showError,
+  onFlash: (keys, from, until) => {
+    state.flash = { keys, from, until };
+  },
+  onSlowShown: () => {
+    progress.shown[TASK.file] = true;
+    saveProgress(progress);
+  },
+});
+state.trace = replay.view;
+
+// Разметка последнего запуска: столбцы ошибок и мест вызова в размеченном
+// коде правее твоих, map() возвращает их назад.
+let marked = null;
+const unmark = (place) =>
+  marked && place.file === TASK.file && place.column
+    ? { ...place, column: marked.map(place.line, place.column) }
+    : place;
+
 const sandbox = createSandbox({
   worldContainer: document.querySelector(`#sandbox`),
   previewContainer: document.querySelector(`#preview`),
@@ -131,11 +158,12 @@ const sandbox = createSandbox({
   things: SWITCHBOARD_THINGS,
   // Решённые файлы станции: в главе 1 их ещё нет.
   solvedFiles: () => [],
-  onSnapshot: (world) => {
-    state.world = world;
-  },
-  onError: showError,
+  onSnapshot: (world) => replay.receive({ kind: `world`, world }),
+  onTrace: (event) => replay.receive(event),
+  onError: (error) => replay.receive({ kind: `error`, error: unmark(error) }),
+  onDone: () => replay.receive({ kind: `done` }),
   onHang: () => {
+    replay.stop();
     state.notes = [HANG];
     refreshNotes();
   },
@@ -163,15 +191,20 @@ if (state.solved) {
 
 // Запуск — как перезагрузка питания: чистая страница, затем твой код.
 // Пока задача не решена, она снова стоит у ставня и ждёт, что получится.
-const run = () => {
+// Первый запуск задачи показывается медленно, и свет проседает.
+const run = ({ slow = false } = {}) => {
   state.lever.closed = true;
   state.world = null;
   state.notes = null;
   if (!state.solved) resetGirl(state.girl);
   refreshNotes();
   lastRun = editor.state.doc.toString();
+  marked = instrument(lastRun);
   editor.dispatch({ effects: setNotch.of(null) });
-  sandbox.run([{ name: TASK.file, code: lastRun }]);
+
+  const first = !progress.shown[TASK.file];
+  replay.start({ slow: slow || first, dip: first, marked, file: TASK.file });
+  sandbox.run([{ name: TASK.file, code: marked.code }]);
 };
 
 // Успех ничем не объявляется (MECHANICS.md §3.4): она прошла в дверь,
@@ -204,6 +237,7 @@ const editor = createEditor(
     onRun: run,
     onChange: (update) => {
       live.onChange(update);
+      replay.clearLines();
       keepDraft();
     },
   },
@@ -219,6 +253,23 @@ live = createLivePreview({
   },
 });
 live.schedule();
+
+// Строка кода → её верх и высота в пикселях сцены. Кромку выполненных
+// строк рисует холст, а сами строки живут в редакторе поверх него.
+state.lineBoxes = () => {
+  const box = canvas.getBoundingClientRect();
+  const unit = box.height / SCENE.height;
+  const top = editor.documentTop;
+  const { doc } = editor.state;
+  return (line) => {
+    if (line > doc.lines) return null;
+    const block = editor.lineBlockAt(doc.line(line).from);
+    return {
+      top: (top + block.top - box.top) / unit,
+      height: block.height / unit,
+    };
+  };
+};
 
 // Наведение мыши: пока мышь на месте, поля показывают справку, а когда
 // она ушла — возвращают своё. Справка не всплывает поверх сцены.
@@ -276,8 +327,21 @@ addEventListener(`keydown`, (event) => {
   if (!event.ctrlKey && !event.metaKey) return;
 
   event.preventDefault();
-  run();
+  run({ slow: event.shiftKey });
 });
+
+// Любая клавиша пропускает медленный показ. Сама клавиша работает как
+// обычно: буква печатается. Ctrl+Enter не в счёт — запуск и так
+// начинает показ заново.
+const MODIFIERS = new Set([`Shift`, `Control`, `Alt`, `Meta`]);
+addEventListener(
+  `keydown`,
+  (event) => {
+    const running = event.key === `Enter` && (event.ctrlKey || event.metaKey);
+    if (!MODIFIERS.has(event.key) && !running) replay.skip();
+  },
+  { capture: true },
+);
 
 // Рубильник — видимый двойник Ctrl+Enter.
 const toScene = ({ clientX, clientY }) => {
@@ -300,9 +364,11 @@ const thingAt = (point) =>
 canvas.addEventListener(`pointerdown`, (event) => {
   const point = toScene(event);
 
-  if (isInside(state.layout.lever, point)) {
+  const lever = isInside(state.layout.lever, point);
+  const slow = isInside(state.layout.slow, point);
+  if (lever || slow) {
     event.preventDefault();
-    run();
+    run({ slow });
     editor.focus();
     return;
   }
@@ -316,7 +382,8 @@ canvas.addEventListener(`pointerdown`, (event) => {
   event.preventDefault();
   editor.dispatch(editor.state.replaceSelection(`\`${selector}\``));
   editor.focus();
-  state.flash = { key: found[0], until: performance.now() + 400 };
+  const now = performance.now();
+  state.flash = { keys: [found[0]], from: now, until: now + 400 };
 });
 
 // Щуп: навёл мышь на вещь — на полях её настоящий HTML, вещь обведена.
@@ -328,9 +395,10 @@ let showingHer = false;
 canvas.addEventListener(`pointermove`, (event) => {
   const point = toScene(event);
   const found = thingAt(point);
-  const onLever = isInside(state.layout.lever, point);
+  const onSwitch =
+    isInside(state.layout.lever, point) || isInside(state.layout.slow, point);
   state.probe = found?.[0] ?? null;
-  canvas.style.cursor = onLever || found ? `pointer` : ``;
+  canvas.style.cursor = onSwitch || found ? `pointer` : ``;
 
   if (found) {
     return hover([
@@ -359,14 +427,18 @@ canvas.addEventListener(`pointerleave`, () => {
 // Первая загрузка: комната и уже решённые файлы станции. Без них лампа
 // не горит.
 lastRun = state.solved ?? ``;
+replay.start({ slow: false, dip: false, marked: null, file: TASK.file });
 sandbox.run(state.solved ? [{ name: TASK.file, code: state.solved }] : []);
 
+const shownote = document.querySelector(`#shownote`);
 let last = performance.now();
 const tick = (now) => {
   const lamp = state.world?.things.lamp;
   const lampOn = !!state.world?.room.present && hasClass(lamp, `on`);
   const before = state.girl.mode;
 
+  replay.update(now);
+  shownote.hidden = !replay.view.slow;
   updateGirl(state.girl, { lampOn }, Math.min(0.1, (now - last) / 1000));
   const left = before !== `gone` && state.girl.mode === `gone`;
   if (left && !state.solved) succeed();

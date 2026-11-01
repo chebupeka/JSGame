@@ -10,9 +10,14 @@ import {
   hasClass,
 } from "../rooms/switchboard/things.js";
 import { drawMonitor } from "../rooms/switchboard/monitor.js";
+import { SCENE } from "../screen/scale.js";
 import { drawTerminalBody } from "../terminal/body.js";
-import { drawLever } from "../terminal/lever.js";
+import { drawEdges } from "../terminal/edges.js";
+import { drawLever, drawSlowToggle } from "../terminal/lever.js";
+import { pulseLook } from "../trace/replay.js";
 import { drawLampLight } from "./light.js";
+import { grey } from "./palette.js";
+import { ditherFill } from "./pixels.js";
 import { drawPlate, plateText } from "./stencil.js";
 import { drawDottedOutline, drawWire } from "./wires.js";
 
@@ -31,10 +36,12 @@ const drawLight = (ctx, lamp) => {
 };
 
 // Таблички вещей: настоящий id или класс. Горят, если к вещи тянется
-// провод, и вспыхивают, когда её селектор вставили Ctrl+кликом.
+// провод, и вспыхивают, когда её селектор вставили Ctrl+кликом или
+// к ней добежал импульс поиска.
 const drawPlates = (ctx, things, wires, flash, time) => {
   SWITCHBOARD_THINGS.forEach(({ key, plate }) => {
-    const flashing = flash?.key === key && time < flash.until;
+    const flashing =
+      flash?.keys.includes(key) && time >= flash.from && time < flash.until;
     const lit = flashing || wires.some((wire) => wire.key === key);
     drawPlate(ctx, plate, plateText(things?.[key]), lit);
   });
@@ -42,9 +49,10 @@ const drawPlates = (ctx, things, wires, flash, time) => {
 
 // Призрачные провода, пока печатаешь: к первой найденной вещи (или ко всем
 // для querySelectorAll), остальные совпадения — пунктирной обводкой.
+const bottom = ({ x, y, width, height }) => [x + width / 2, y + height];
+
 const drawWires = (ctx, wires, { socket }) => {
   const from = [socket.x + 2, socket.y + 2];
-  const bottom = ({ x, y, width, height }) => [x + width / 2, y + height];
 
   wires.forEach(({ target, others, all, repeat }) => {
     const targets = all.length ? all : [target];
@@ -57,9 +65,30 @@ const drawWires = (ctx, wires, { socket }) => {
   });
 };
 
+// Показ по шагам: импульс бежит по проводу к найденной вещи; провод,
+// который держит переменная, висит на 50 %. Рамка из записи бывает 0×0
+// (песочница ещё без размера) — тогда берём рамку вещи из снимка.
+const drawRunWires = (ctx, { pulses, kept }, { socket }, world, time) => {
+  const from = [socket.x + 2, socket.y + 2];
+  const ends = ({ rects, keys }) =>
+    rects
+      .map((rect, i) => (rect.width > 0 ? rect : world?.things[keys[i]]?.rect))
+      .filter((rect) => rect?.width > 0)
+      .map(bottom);
+
+  kept.forEach((wire) =>
+    ends(wire).forEach((to) => drawWire(ctx, from, to, { density: 0.5 })),
+  );
+  pulses.forEach((pulse) =>
+    ends(pulse).forEach((to) =>
+      drawWire(ctx, from, to, pulseLook(pulse, time)),
+    ),
+  );
+};
+
 // world — последний снимок из песочницы: есть ли комната и вещи в ней.
 export const drawScene = (ctx, state, time) => {
-  const { layout, overlays, world, girl, lever, sprites, wires } = state;
+  const { layout, overlays, world, girl, lever, sprites, wires, trace } = state;
   const roomPresent = world?.room.present ?? true;
   const probed = state.probe && world?.things[state.probe];
 
@@ -76,7 +105,12 @@ export const drawScene = (ctx, state, time) => {
   drawDaylight(ctx);
   overlays.forEach((draw) => draw(ctx, layout));
   drawGirl(ctx, girl, time, sprites?.girl);
+  // Первый медленный показ: свет в комнате на полсекунды проседает.
+  ditherFill(ctx, grey[0], trace.dip, 0, 0, SCENE.width, SCENE.height);
   drawTerminalBody(ctx, layout, sprites?.terminal);
+  if (trace.lines.size) drawEdges(ctx, layout, trace, state.lineBoxes());
   drawWires(ctx, wires, layout);
+  drawRunWires(ctx, trace, layout, world, time);
   drawLever(ctx, layout.lever, lever.closed);
+  drawSlowToggle(ctx, layout.slow, trace.slow);
 };

@@ -68,11 +68,21 @@ body {
     "calt" 0;
 }
 
-#nameplate {
+/* Надписи на корпусе: имя файла, «показано медленно…», клавиши тумблера. */
+.plate {
   color: var(--comment);
   font-size: calc(var(--plate-font) * var(--u) * 1px);
   line-height: calc(var(--h) * var(--u) * 1px);
   white-space: nowrap;
+}
+
+#shownote {
+  text-align: right;
+}
+
+#slowplate {
+  text-align: center;
+  font-size: calc(var(--plate-font) * 0.8 * var(--u) * 1px);
 }
 
 #code {
