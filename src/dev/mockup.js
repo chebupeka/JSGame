@@ -1,4 +1,4 @@
-import { drawSilhouette } from "../girl/stub.js";
+import { drawSilhouette } from "../girl/girl.js";
 import { SWITCHBOARD } from "../rooms/switchboard/backdrop.js";
 import { blue, blueGlow } from "../render/palette.js";
 import { ditherShape, dot } from "../render/pixels.js";

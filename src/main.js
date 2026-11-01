@@ -4,7 +4,7 @@ import "@fontsource/tiny5/400.css";
 import "./style.css";
 
 import { createLivePreview } from "./code/live.js";
-import { createGirl, resetGirl, updateGirl } from "./girl/stub.js";
+import { createGirl, resetGirl, updateGirl } from "./girl/girl.js";
 import { drawScene } from "./render/scene.js";
 import { loadSprites } from "./render/sprites.js";
 import { STENCIL_FONT } from "./render/stencil.js";

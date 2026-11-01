@@ -1,4 +1,4 @@
-import { GIRL_PATH, drawGirl } from "../girl/stub.js";
+import { GIRL_PATH, drawGirl } from "../girl/girl.js";
 import {
   SWITCHBOARD,
   drawDaylight,
@@ -67,7 +67,7 @@ export const drawScene = (ctx, state, time) => {
   }
   drawDaylight(ctx);
   overlays.forEach((draw) => draw(ctx, layout));
-  drawGirl(ctx, girl, time);
+  drawGirl(ctx, girl, time, sprites?.girl);
   drawTerminalBody(ctx, layout, sprites?.terminal);
   drawWires(ctx, wires, layout);
   drawLever(ctx, layout.lever, lever.closed);
