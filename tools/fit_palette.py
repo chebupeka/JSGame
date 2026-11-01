@@ -7,16 +7,12 @@
    самый частый цвет. Размер клетки скрипт находит сам по ритму границ
    («пиксели» нейросети — это квадраты по 5–8 точек). Можно задать размер
    результата вручную через --width (и --height).
-4. Пустые края обрезаются. С --no-trim не обрезаются: сетка кладётся на весь
-   холст, и результат — весь холст в пикселях сцены. Так лист кадров
-   (несколько поз на одной картинке) сохраняет одну сетку и взаимное
-   положение кадров; дальше его режет tools/sheet.py.
+4. Пустые края обрезаются.
 
 Пример:
   python tools/fit_palette.py assets/_raw/terminal-v1-1.png assets/sprites/terminal.png
   python tools/fit_palette.py docs/reference/mood.webp assets/_preview/mood.png --width 320 --height 180
   python tools/fit_palette.py raw.png sprite.png --without "#FFFFFF"   (белый только снаружи)
-  python tools/fit_palette.py assets/_raw/girl/walk-1.png assets/_raw/girl/walk-fit.png --no-trim
 """
 
 import argparse
@@ -62,7 +58,7 @@ def cell_indices(length, period, offset):
     return cells - cells.min()
 
 
-def fit(src, width=None, height=None, alpha_threshold=160, without=(), trim=True):
+def fit(src, width=None, height=None, alpha_threshold=160, without=()):
     palette = load_palette()
     excluded = {hex_.upper() for hex_ in without}
     palette = palette[[to_hex(c) not in excluded for c in palette]]
@@ -72,9 +68,8 @@ def fit(src, width=None, height=None, alpha_threshold=160, without=(), trim=True
     ys, xs = np.nonzero(opaque)
     if len(xs) == 0:
         raise SystemExit(f"{src}: нет ни одного непрозрачного пикселя")
-    if trim:
-        top, bottom, left, right = ys.min(), ys.max() + 1, xs.min(), xs.max() + 1
-        rgba, opaque = rgba[top:bottom, left:right], opaque[top:bottom, left:right]
+    top, bottom, left, right = ys.min(), ys.max() + 1, xs.min(), xs.max() + 1
+    rgba, opaque = rgba[top:bottom, left:right], opaque[top:bottom, left:right]
     h, w = opaque.shape
 
     index = nearest_index(rgba[..., :3].reshape(-1, 3), palette).reshape(h, w)
@@ -108,9 +103,8 @@ def fit(src, width=None, height=None, alpha_threshold=160, without=(), trim=True
     out[..., :3] = palette[best]
     out[..., 3] = np.where(transparent, 0, 255)
 
-    if trim:
-        ys, xs = np.nonzero(out[..., 3])
-        out = out[ys.min() : ys.max() + 1, xs.min() : xs.max() + 1]
+    ys, xs = np.nonzero(out[..., 3])
+    out = out[ys.min() : ys.max() + 1, xs.min() : xs.max() + 1]
 
     return out, grid
 
@@ -123,10 +117,9 @@ def main():
     parser.add_argument("--height", type=int, help="высота результата (по умолчанию по пропорции)")
     parser.add_argument("--alpha", type=int, default=160, help="порог непрозрачности 0–255")
     parser.add_argument("--without", nargs="+", default=[], metavar="HEX", help="цвета палитры, которых в этой вещи быть не должно")
-    parser.add_argument("--no-trim", action="store_true", help="не обрезать пустые края: одна сетка на весь холст (для листов кадров)")
     args = parser.parse_args()
 
-    out, grid = fit(args.src, args.width, args.height, args.alpha, args.without, trim=not args.no_trim)
+    out, grid = fit(args.src, args.width, args.height, args.alpha, args.without)
     Path(args.out).parent.mkdir(parents=True, exist_ok=True)
     Image.fromarray(out, "RGBA").save(args.out)
 
