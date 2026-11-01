@@ -79,12 +79,16 @@ body {
   user-select: text;
 }
 
+/* Поля: щелчок — следующая подсказка. Длинный код в подсказке
+   переносится где угодно, а не уезжает за край. */
 #notes {
   overflow: hidden;
+  overflow-wrap: anywhere;
   color: var(--comment);
   font-style: italic;
   font-size: calc(var(--notes-font) * var(--u) * 1px);
   line-height: calc(var(--notes-line) * var(--u) * 1px);
+  cursor: pointer;
 }
 
 #notes p {

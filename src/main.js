@@ -16,13 +16,12 @@ import { hasClass } from "./rooms/switchboard/things.js";
 import { createSandbox } from "./sandbox/host.js";
 import { LAYOUTS, applyLayout } from "./screen/layout.js";
 import { SCENE, applyFrame, watchFrame } from "./screen/scale.js";
+import { LAMP_TASK } from "./tasks/lamp.js";
 import { createEditor } from "./terminal/editor.js";
 import { isInside } from "./terminal/lever.js";
 import { showNotes } from "./terminal/notes.js";
 
-const TASK = `// Хочу, чтобы в щитовой загорелась лампа.\n`;
-const FILE = `lamp.js`;
-const NOTE = `Темно. Лампа на стене — это элемент страницы, у неё есть имя. Запуск — Ctrl+Enter или рубильник.`;
+const TASK = LAMP_TASK;
 const SMALL = `Разверни окно или нажми F11.`;
 const HANG = `Код не закончился и за секунду. Похоже на бесконечный цикл. Станция перезапущена, можно запускать снова.`;
 const UNKNOWN = `Узнаем при запуске. Заранее тут честно не сказать: селектор собирается на ходу, ищет не от document или код выше меняет страницу.`;
@@ -38,15 +37,34 @@ const state = {
   world: null,
   girl: createGirl(),
   lever: { closed: false },
-  notes: [NOTE],
+  // null — пометка при входе в задачу; иначе — то, что случилось (ошибка).
+  notes: null,
+  hint: 0,
   wires: [],
 };
 
 const render = (time = performance.now()) => drawScene(ctx, state, time);
 
+// Пометка при входе в задачу и последняя открытая подсказка.
+const entryNotes = () => [
+  ...TASK.notes,
+  ...TASK.hints.slice(0, state.hint).slice(-1),
+];
+
 // На ×3 и меньше код мельче 12 px: игра работает, но лучше крупнее.
 const refreshNotes = () =>
-  showNotes(...(state.scale < 4 ? [SMALL] : []), ...state.notes);
+  showNotes(
+    ...(state.scale < 4 ? [SMALL] : []),
+    ...(state.notes ?? entryNotes()),
+  );
+
+// Щелчок по полям — следующая подсказка, каждая конкретнее предыдущей.
+// Подсказки бесплатные, ничего не считается.
+document.querySelector(`#notes`).addEventListener(`click`, () => {
+  state.hint = Math.min(TASK.hints.length, state.hint + 1);
+  state.notes = null;
+  refreshNotes();
+});
 
 const sandbox = createSandbox({
   worldContainer: document.querySelector(`#sandbox`),
@@ -85,16 +103,16 @@ ctx.imageSmoothingEnabled = false;
 const run = () => {
   state.lever.closed = true;
   state.world = null;
-  state.notes = [NOTE];
+  state.notes = null;
   resetGirl(state.girl);
   refreshNotes();
-  sandbox.run([{ name: FILE, code: editor.state.doc.toString() }]);
+  sandbox.run([{ name: TASK.file, code: editor.state.doc.toString() }]);
 };
 
-document.querySelector(`#nameplate`).textContent = FILE;
+document.querySelector(`#nameplate`).textContent = TASK.file;
 applyLayout(state.layout);
 let live = null;
-const editor = createEditor(document.querySelector(`#code`), TASK, {
+const editor = createEditor(document.querySelector(`#code`), TASK.code, {
   onRun: run,
   onChange: (update) => live.onChange(update),
 });
