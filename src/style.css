@@ -121,3 +121,46 @@ body {
   padding: 0;
   list-style: none;
 }
+
+/* Подпись к звуку на кромке корпуса — чёткий текст в мире, не поверх сцены. */
+#caption {
+  overflow: hidden;
+  color: var(--chalk);
+}
+
+/* Настройки (второй Esc): простая страница поверх кадра, без украшений. */
+#settings {
+  position: absolute;
+  inset: 0;
+  /* Выше слоёв CodeMirror: у его полей номеров свой z-index. */
+  z-index: 1000;
+  padding: calc(12 * var(--u) * 1px) calc(20 * var(--u) * 1px);
+  background: #1b1b1b;
+  color: var(--chalk);
+  font-size: calc(5 * var(--u) * 1px);
+  line-height: 1.8;
+}
+
+#settings[hidden] {
+  display: none;
+}
+
+#settings h2 {
+  margin: 0 0 calc(4 * var(--u) * 1px);
+  font-size: inherit;
+  font-weight: normal;
+  color: var(--keyword);
+}
+
+#settings label {
+  display: block;
+}
+
+#settings p {
+  margin: calc(4 * var(--u) * 1px) 0 0;
+  color: var(--comment);
+}
+
+#settings input {
+  accent-color: var(--found);
+}

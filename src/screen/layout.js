@@ -18,6 +18,7 @@ export const LAYOUTS = {
     notes: { x: 153, y: 119, w: 56, h: 60 },
     nameplate: { x: 5, y: 109, w: 40, h: 7 },
     shownote: { x: 60, y: 109, w: 140, h: 7 },
+    caption: { x: 50, y: 109, w: 80, h: 7 },
     socket: { x: 213, y: 110 },
     lever: { x: 230, y: 120, w: 16, h: 32 },
     breaker: { x: 252, y: 126, w: 10, h: 14 },
@@ -44,6 +45,7 @@ export const LAYOUTS = {
     notes: { x: 131, y: 130, w: 48, h: 48 },
     nameplate: { x: 5, y: 122, w: 40, h: 6 },
     shownote: { x: 50, y: 122, w: 120, h: 6 },
+    caption: { x: 48, y: 122, w: 56, h: 6 },
     socket: { x: 178, y: 123 },
     lever: { x: 194, y: 134, w: 16, h: 32 },
     breaker: { x: 216, y: 140, w: 10, h: 14 },
@@ -81,4 +83,5 @@ export const applyLayout = (layout) => {
   place(document.querySelector(`#nameplate`), layout.nameplate);
   place(document.querySelector(`#shownote`), layout.shownote);
   place(document.querySelector(`#slowplate`), layout.slowplate);
+  place(document.querySelector(`#caption`), layout.caption);
 };

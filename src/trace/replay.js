@@ -47,7 +47,13 @@ const dipAt = (dips, now) =>
       .map((t) => 0.6 * Math.sin(Math.PI * t)),
   );
 
-export const createReplay = ({ onWorld, onError, onFlash, onSlowShown }) => {
+export const createReplay = ({
+  onWorld,
+  onError,
+  onFlash,
+  onSlowShown,
+  onPulse = () => {},
+}) => {
   // Что рисуют терминал и сцена. Кромки и висящие провода остаются после
   // показа: кромки — до правки кода, провода — до следующего запуска.
   const view = {
@@ -78,6 +84,7 @@ export const createReplay = ({ onWorld, onError, onFlash, onSlowShown }) => {
     if (event.file !== show.file) return;
     if (!event.count) {
       view.loose = { start: begin, run: show.slow ? PULSE.run : 0 };
+      if (show.slow) onPulse(null);
       return;
     }
 
@@ -89,6 +96,7 @@ export const createReplay = ({ onWorld, onError, onFlash, onSlowShown }) => {
     }
 
     view.pulses.push({ ...wire, start: begin, lines: call?.lines ?? [] });
+    onPulse(event.rects[0]);
     const arrived = begin + PULSE.run;
     onFlash(event.keys, arrived, arrived + PULSE.hold);
   };

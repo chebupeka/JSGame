@@ -23,13 +23,15 @@ import { hasClass } from "./rooms/switchboard/things.js";
 import { createSandbox } from "./sandbox/host.js";
 import { LAYOUTS, applyLayout } from "./screen/layout.js";
 import { SCENE, applyFrame, watchFrame } from "./screen/scale.js";
+import { createSettingsPage, loadSettings } from "./settings.js";
+import { createSound } from "./sound/station.js";
 import { LAMP_TASK } from "./tasks/lamp.js";
 import { createEditor } from "./terminal/editor.js";
 import { isInside } from "./terminal/lever.js";
-import { createReplay } from "./trace/replay.js";
 import { setNotch } from "./terminal/marks.js";
 import { errorNotes, rawNote, showNotes } from "./terminal/notes.js";
 import { SELECTOR_MARKS, WORDS } from "./terminal/words.js";
+import { createReplay } from "./trace/replay.js";
 
 const TASK = LAMP_TASK;
 const SMALL = `Разверни окно или нажми F11.`;
@@ -133,11 +135,35 @@ const fail = (error) => {
   if (isSyntax(error)) {
     state.lever.closed = false;
     state.lever.bounced = performance.now();
+    sound.play(`bounce`);
   } else {
     state.breaker.tripped = true;
+    sound.play(`breaker`);
   }
   showError(error);
 };
+
+// Звук станции и подписи к нему на кромке корпуса (решение 4: всё, что
+// слышно, видно и так). Звук начинается с первой клавиши или щелчка.
+const settings = loadSettings();
+const caption = document.querySelector(`#caption`);
+let captionTimer = null;
+const sound = createSound({
+  settings,
+  onCaption: (text) => {
+    caption.textContent = text;
+    clearTimeout(captionTimer);
+    captionTimer = setTimeout(() => {
+      caption.textContent = ``;
+    }, 2000);
+  },
+});
+addEventListener(`keydown`, sound.start, { capture: true, once: true });
+addEventListener(`pointerdown`, sound.start, { capture: true, once: true });
+
+// Сторона комнаты для звука: левый край сцены — левое ухо.
+const panOf = (rect) =>
+  rect ? ((rect.x + rect.width / 2) / SCENE.width) * 2 - 1 : 0.2;
 
 // Показ по шагам: всё, что пришло из песочницы, идёт через него — мир
 // меняется, ошибка появляется ровно тогда, когда показ до неё дошёл.
@@ -153,6 +179,7 @@ const replay = createReplay({
     progress.shown[TASK.file] = true;
     saveProgress(progress);
   },
+  onPulse: (rect) => sound.play(`pulse`, { pan: panOf(rect) }),
 });
 state.trace = replay.view;
 
@@ -220,6 +247,8 @@ const run = ({ slow = false } = {}) => {
   const first = !progress.shown[TASK.file];
   replay.start({ slow: slow || first, dip: first, marked, file: TASK.file });
   sandbox.run([{ name: TASK.file, code: marked.code }]);
+  sound.play(`lever`);
+  sound.play(`rise`);
 };
 
 // Успех ничем не объявляется (MECHANICS.md §3.4): она прошла в дверь,
@@ -264,10 +293,40 @@ live = createLivePreview({
   editor,
   query: sandbox.query,
   onWires: (wires) => {
+    // Новое совпадение — щелчок реле с той стороны, где вещь.
+    const before = new Set(state.wires.map(({ key }) => key));
+    const fresh = wires.find(({ key }) => key && !before.has(key));
+    if (fresh) sound.play(`relay`, { pan: panOf(fresh.target) });
     state.wires = wires;
   },
 });
 live.schedule();
+
+// Мягкие клавиши, пока печатаешь в терминале.
+const TYPING = new Set([`Backspace`, `Delete`, `Enter`, `Tab`]);
+editor.dom.addEventListener(`keydown`, (event) => {
+  if (event.ctrlKey || event.metaKey || event.altKey) return;
+  if (event.key.length === 1 || TYPING.has(event.key)) sound.play(`key`);
+});
+
+// Esc: первый выводит фокус из терминала (Tab там — отступ, и без Esc
+// из него не выйти), второй открывает настройки, третий закрывает.
+const settingsPage = createSettingsPage(
+  document.querySelector(`#settings`),
+  settings,
+  sound.apply,
+);
+addEventListener(`keydown`, (event) => {
+  if (event.key !== `Escape`) return;
+  if (settingsPage.isOpen) {
+    settingsPage.close();
+    editor.focus();
+  } else if (editor.hasFocus) {
+    editor.contentDOM.blur();
+  } else {
+    settingsPage.open();
+  }
+});
 
 // Строка кода → её верх и высота в пикселях сцены. Кромку выполненных
 // строк рисует холст, а сами строки живут в редакторе поверх него.
