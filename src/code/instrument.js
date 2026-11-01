@@ -3,9 +3,11 @@ import { full, fullAncestor } from "acorn-walk";
 
 // Разметка кода для показа по шагам. Перед каждой инструкцией в той же
 // строке встаёт метка `__s(n);`: агент записывает, что инструкция n
-// выполнилась. Переносов не добавляем, поэтому номера строк остаются
-// твоими. Столбцы правее вставки сдвигаются — map() возвращает их назад.
-// Текст ошибок V8 от меток не меняется: метка — отдельная инструкция.
+// выполнилась. В тело каждого цикла первой встаёт `__g();` — сторож:
+// цикл без передышки дольше секунды прерывается. Переносов не добавляем,
+// поэтому номера строк остаются твоими. Столбцы правее вставки
+// сдвигаются — map() возвращает их назад. Текст ошибок V8 от меток
+// не меняется: метка — отдельная инструкция.
 
 const BODIES = new Set([`Program`, `BlockStatement`, `StaticBlock`]);
 const FUNCTIONS = new Set([
@@ -13,6 +15,31 @@ const FUNCTIONS = new Set([
   `FunctionExpression`,
   `ArrowFunctionExpression`,
 ]);
+
+const LOOPS = new Set([
+  `WhileStatement`,
+  `DoWhileStatement`,
+  `ForStatement`,
+  `ForInStatement`,
+  `ForOfStatement`,
+]);
+
+// Сторож в каждом цикле. Тело без скобок берём в скобки: `for (;;) x++;`
+// становится `for (;;) {__g();x++;}` — смысл кода от этого не меняется.
+const guardsOf = (ast) => {
+  const inserts = [];
+  full(ast, (node) => {
+    if (!LOOPS.has(node.type)) return;
+    const { body } = node;
+    if (body.type === `BlockStatement`) {
+      inserts.push({ at: body.start + 1, text: `__g();` });
+    } else {
+      inserts.push({ at: body.start, text: `{__g();` });
+      inserts.push({ at: body.end, text: `}` });
+    }
+  });
+  return inserts;
+};
 
 const range = (from, to) =>
   Array.from({ length: Math.max(0, to - from + 1) }, (_, i) => from + i);
@@ -103,18 +130,33 @@ export const instrument = (code) => {
       ...linesOf(statement),
     }));
 
+  // Начало каждой строки в твоём коде: место вставки → строка и столбец.
+  const starts = [0];
+  for (const line of code.split(`\n`)) {
+    starts.push(starts.at(-1) + line.length + 1);
+  }
+  const lineOf = (at) => starts.findLastIndex((start) => start <= at) + 1;
+
+  const inserts = [
+    ...statements.map(({ n, at }) => ({ at, text: `__s(${n});` })),
+    ...guardsOf(ast),
+  ].sort((a, b) => a.at - b.at);
+
   let out = ``;
   let cursor = 0;
   const shifts = {};
-  for (const { n, at, line, column } of statements) {
-    const mark = `__s(${n});`;
-    out += code.slice(cursor, at) + mark;
+  for (const { at, text } of inserts) {
+    out += code.slice(cursor, at) + text;
     cursor = at;
-    (shifts[line] ??= []).push({ column, length: mark.length });
+    const line = lineOf(at);
+    (shifts[line] ??= []).push({
+      column: at - starts[line - 1] + 1,
+      length: text.length,
+    });
   }
   out += code.slice(cursor);
 
-  // Столбец в размеченном коде → столбец в твоём (оба с единицы). Метки
+  // Столбец в размеченном коде → столбец в твоём (оба с единицы). Вставки
   // строки идут слева направо; каждая, что стоит левее, сдвигает на свою длину.
   const map = (line, column) => {
     let shifted = 0;
@@ -127,11 +169,6 @@ export const instrument = (code) => {
 
   // Место вызова из стека → сам вызов, самый внутренний на этом месте.
   // V8 пишет место вызова метода по его имени, а оно внутри вызова.
-  const starts = [0];
-  for (const line of code.split(`
-`)) {
-    starts.push(starts.at(-1) + line.length + 1);
-  }
   const calls = callsOf(ast);
   const callAt = (line, column) => {
     const at = starts[line - 1] + map(line, column) - 1;

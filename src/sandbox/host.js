@@ -3,7 +3,11 @@
 // Каждый запуск — новый iframe, то есть чистая страница, как после F5.
 // Рядом всегда прогрет второй iframe — для превью: в нём только чистая
 // станция и уже решённые файлы, код игрока туда не попадает никогда.
-const PULSE_TIMEOUT = 1000;
+// Цикл прерывает сторож в самой песочнице через 0,8 с. Пульс — запасная
+// защита для зависаний без цикла, поэтому ждёт дольше.
+const PULSE_TIMEOUT = 1500;
+// Пульс пропал дольше этого — код занят, мир на экране застывает.
+const STALL = 350;
 const LOAD_TIMEOUT = 5000;
 const QUERY_TIMEOUT = 1000;
 
@@ -17,7 +21,14 @@ const sandboxOrigin = (index) => {
 };
 
 // Один iframe с агентом: рукопожатие, канал сообщений и сторож по пульсу.
-const launch = ({ origin, container, hello, messages, onHang }) => {
+const launch = ({
+  origin,
+  container,
+  hello,
+  messages,
+  onHang,
+  onStall = () => {},
+}) => {
   const iframe = document.createElement(`iframe`);
   iframe.setAttribute(`sandbox`, `allow-scripts allow-same-origin`);
   iframe.title = `песочница`;
@@ -25,12 +36,20 @@ const launch = ({ origin, container, hello, messages, onHang }) => {
 
   let port = null;
   let lastPulse = performance.now();
+  let stalled = false;
   const queue = [];
+
+  const setStalled = (value) => {
+    if (stalled === value) return;
+    stalled = value;
+    onStall(value);
+  };
 
   const handlers = {
     ...messages,
     pulse: () => {
       lastPulse = performance.now();
+      setStalled(false);
     },
   };
 
@@ -69,10 +88,12 @@ const launch = ({ origin, container, hello, messages, onHang }) => {
   const watchdog = setInterval(() => {
     if (document.hidden) return forgive();
 
-    const limit = port ? PULSE_TIMEOUT : LOAD_TIMEOUT;
-    if (performance.now() - lastPulse < limit) return;
+    const quiet = performance.now() - lastPulse;
+    if (port && quiet > STALL) setStalled(true);
+    if (quiet < (port ? PULSE_TIMEOUT : LOAD_TIMEOUT)) return;
 
     stop();
+    setStalled(false);
     onHang();
   }, 250);
 
@@ -94,6 +115,8 @@ export const createSandbox = ({
   onTrace,
   onError,
   onDone,
+  onHalt,
+  onStall,
   onHang,
 }) => {
   let index = 0;
@@ -143,9 +166,11 @@ export const createSandbox = ({
         snapshot: ({ world }) => onSnapshot(world),
         trace: ({ event }) => onTrace(event),
         error: (error) => onError(error),
+        halt: () => onHalt(),
         done: () => onDone(),
       },
       onHang: worldHung,
+      onStall,
     });
   };
 

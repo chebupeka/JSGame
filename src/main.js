@@ -36,6 +36,7 @@ import { createReplay } from "./trace/replay.js";
 const TASK = LAMP_TASK;
 const SMALL = `Разверни окно или нажми F11.`;
 const HANG = `Код не закончился и за секунду. Похоже на бесконечный цикл. Станция перезапущена, можно запускать снова.`;
+const HALT = `Цикл крутился без передышки дольше секунды, и сторож его прервал. Похоже на бесконечный цикл: станет ли его условие когда-нибудь ложным?`;
 const UNKNOWN = `Узнаем при запуске. Заранее тут честно не сказать: селектор собирается на ходу, ищет не от document или код выше меняет страницу.`;
 
 const frame = document.querySelector(`#frame`);
@@ -50,6 +51,10 @@ const state = {
   girl: createGirl(),
   lever: { closed: false, bounced: null },
   breaker: { tripped: false },
+  // Когда песочница перестала отвечать (мир застыл) и когда клацнул сторож.
+  stalled: null,
+  watchdog: 0,
+  dim: 0,
   // null — пометка при входе в задачу; иначе — то, что случилось (ошибка).
   notes: null,
   hint: 0,
@@ -180,7 +185,26 @@ const replay = createReplay({
     saveProgress(progress);
   },
   onPulse: (rect) => sound.play(`pulse`, { pan: panOf(rect) }),
+  onHalt: () => {
+    state.notes = [HALT];
+    refreshNotes();
+  },
 });
+
+// Сторож (MECHANICS.md §3.3): пока код занят, мир застывает, свет тускнеет
+// и гул ползёт вверх. Через секунду клац сторожа, свет на миг гаснет —
+// и снова слышно море.
+const watchdog = () => {
+  state.stalled = null;
+  state.watchdog = performance.now();
+  sound.play(`watchdog`);
+};
+
+const dimAt = (now) => {
+  const strain = state.stalled === null ? 0 : (now - state.stalled) / 1000;
+  const clack = state.watchdog ? 1 - (now - state.watchdog) / 500 : 0;
+  return Math.max(0, Math.min(0.45, strain * 0.45), clack * 0.9);
+};
 state.trace = replay.view;
 
 // Разметка последнего запуска: столбцы ошибок и мест вызова в размеченном
@@ -202,7 +226,16 @@ const sandbox = createSandbox({
   onTrace: (event) => replay.receive(event),
   onError: (error) => replay.receive({ kind: `error`, error: unmark(error) }),
   onDone: () => replay.receive({ kind: `done` }),
+  onStall: (busy) => {
+    state.stalled = busy ? performance.now() : null;
+    if (busy) sound.play(`strain`);
+  },
+  onHalt: () => {
+    watchdog();
+    replay.receive({ kind: `halt` });
+  },
   onHang: () => {
+    watchdog();
     replay.stop();
     state.notes = [HANG];
     refreshNotes();
@@ -510,14 +543,19 @@ const tick = (now) => {
   const lamp = state.world?.things.lamp;
   const lampOn = !!state.world?.room.present && hasClass(lamp, `on`);
   const before = state.girl.mode;
+  // Код занят — мир застыл: она посреди шага, импульсы на месте.
+  const frozen = state.stalled !== null;
 
-  replay.update(now);
+  if (!frozen) {
+    replay.update(now);
+    updateGirl(state.girl, { lampOn }, Math.min(0.1, (now - last) / 1000));
+  }
   shownote.hidden = !replay.view.slow;
-  updateGirl(state.girl, { lampOn }, Math.min(0.1, (now - last) / 1000));
   const left = before !== `gone` && state.girl.mode === `gone`;
   if (left && !state.solved) succeed();
   last = now;
-  render(now);
+  state.dim = dimAt(now);
+  render(frozen ? state.stalled : now);
   requestAnimationFrame(tick);
 };
 requestAnimationFrame(tick);

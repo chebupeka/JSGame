@@ -226,6 +226,30 @@ export const VOICES = {
     if (audio.hum) glide(audio.hum.gain, 0, at + 0.02, 0.03);
   },
 
+  // Код занят: гул медленно ползёт вверх.
+  strain: ({ hum }, { at }) => {
+    if (hum) glide(hum.gain, 2.6, at, 0.6);
+  },
+
+  // Сторож: тяжёлый клац, гул пропадает — остаются море и ветер.
+  watchdog: (audio, { at }) => {
+    thump(audio, audio.out, {
+      at,
+      from: 95,
+      to: 38,
+      length: 0.26,
+      gain: 0.3,
+    });
+    burst(audio, audio.out, {
+      at,
+      length: 0.05,
+      type: `lowpass`,
+      frequency: 1200,
+      gain: 0.18,
+    });
+    if (audio.hum) glide(audio.hum.gain, 0, at + 0.01, 0.02);
+  },
+
   // Рубильник не встал в зацеп: клац и отскок полегче.
   bounce: (audio, { at }) => {
     [

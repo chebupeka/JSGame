@@ -128,8 +128,9 @@ export const drawScene = (ctx, state, time) => {
   drawDaylight(ctx);
   overlays.forEach((draw) => draw(ctx, layout));
   drawGirl(ctx, girl, time, sprites?.girl);
-  // Первый медленный показ: свет в комнате на полсекунды проседает.
-  ditherFill(ctx, grey[0], trace.dip, 0, 0, SCENE.width, SCENE.height);
+  // Свет в комнате проседает: первый медленный показ, ошибка, сторож.
+  const dim = Math.max(trace.dip, state.dim ?? 0);
+  ditherFill(ctx, grey[0], dim, 0, 0, SCENE.width, SCENE.height);
   drawTerminalBody(ctx, layout, sprites?.terminal);
   if (trace.lines.size) drawEdges(ctx, layout, trace, state.lineBoxes());
   drawWires(ctx, wires, layout);

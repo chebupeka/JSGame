@@ -88,3 +88,29 @@ export const snapshot = (things, bound, read) => {
   }
   return out;
 };
+
+// Сторож циклов: `__g()` стоит первой инструкцией в теле каждого цикла
+// (src/code/instrument.js). Циклы крутятся без передышки дольше limit мс —
+// бросаем HALT, и цикл прерывается. Пойманный HALT не спасает: пока нет
+// передышки, каждый следующий `__g()` бросает снова. Передышка дольше gap
+// мс — новый отсчёт: обработчик события запустит свой цикл позже.
+export const HALT = Object.freeze({ halt: `сторож прервал цикл` });
+
+export const createGuard = (clock, { limit = 800, gap = 50 } = {}) => {
+  let since = 0;
+  let last = -Infinity;
+  let tripped = false;
+
+  return () => {
+    const now = clock();
+    if (now - last > gap) {
+      since = now;
+      tripped = false;
+    }
+    last = now;
+    if (tripped || now - since > limit) {
+      tripped = true;
+      throw HALT;
+    }
+  };
+};

@@ -53,6 +53,7 @@ export const createReplay = ({
   onFlash,
   onSlowShown,
   onPulse = () => {},
+  onHalt = () => {},
 }) => {
   // Что рисуют терминал и сцена. Кромки и висящие провода остаются после
   // показа: кромки — до правки кода, провода — до следующего запуска.
@@ -125,6 +126,7 @@ export const createReplay = ({
       fail(item.error, begin);
       onError(item.error);
     }
+    if (item.kind === `halt`) onHalt();
     if (item.kind === `done`) show.done = true;
   };
 

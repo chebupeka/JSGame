@@ -1,6 +1,8 @@
 import {
+  HALT,
   bindThings,
   callSite,
+  createGuard,
   locate,
   matchSelectors,
   snapshot,
@@ -70,7 +72,9 @@ const native = {
   createObjectURL: URL.createObjectURL,
   then: Promise.prototype.then,
   errorText: Error.prototype.toString,
+  now: Performance.prototype.now,
 };
+const clock = () => apply(native.now, performance, []);
 
 const read = {
   isConnected: (element) => apply(native.isConnected, element, []),
@@ -125,6 +129,11 @@ define(win, `__s`, {
     if (onStep) onStep(n);
   },
 });
+
+// Сторож цикла — тоже метка из instrument.js. Цикл без передышки дольше
+// 0,8 с прерывается, и игра узнаёт об этом сразу, а не по пропавшему пульсу.
+const guard = createGuard(clock);
+define(win, `__g`, { value: () => guard() });
 
 const buildRoom = ({ html, css }) => {
   const style = apply(native.createElement, doc, [`style`]);
@@ -320,6 +329,12 @@ const start = (port, { room, things, files, trace }) => {
     apply(native.then, import(urls[i]), [
       () => runFrom(i + 1),
       (error) => {
+        if (error === HALT) {
+          send({ type: `halt`, file: files[i].name });
+          runFrom(i + 1);
+          return;
+        }
+
         const { text, stack } = describeError(error);
         const place = locate(stack, urls[i]);
         send({

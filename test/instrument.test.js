@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import vm from "node:vm";
 
+import { HALT, createGuard } from "../public/run/core.js";
 import { instrument } from "../src/code/instrument.js";
 
 // Тот же V8, что в Chrome: выполняем код с метками и без, сравниваем
@@ -19,6 +20,7 @@ const runIn = (code) => {
   const context = vm.createContext({
     document: station(),
     __s: (n) => marks.push(n),
+    __g: () => {},
   });
   try {
     vm.runInContext(code, context, { filename: `player.js` });
@@ -169,4 +171,68 @@ test(`без скобок после if метку не ставим — смы�
 test(`код, который не разобрался, идёт без меток`, () => {
   const code = `document.querySelector(\`#lamp\`.classList.add(\`on\`);`;
   assert.equal(instrument(code).code, code);
+});
+
+// Сторож: цикл без передышки прерывается. В тесте предел 150 мс вместо 800.
+const guarded = (code) => {
+  const context = vm.createContext({
+    __s: () => {},
+    __g: createGuard(() => performance.now(), { limit: 150 }),
+  });
+  const started = performance.now();
+  try {
+    vm.runInContext(instrument(code).code, context);
+    return { halted: false };
+  } catch (error) {
+    return { halted: error === HALT, took: performance.now() - started };
+  }
+};
+
+for (const loop of [
+  `while (true) {}`,
+  `for (;;) {}`,
+  `for (;;);`,
+  `do {} while (true);`,
+  `let x = 0;
+while (true) x++;`,
+  `while (true) {
+  try {
+    x();
+  } catch {}
+}`,
+]) {
+  test(`сторож прерывает: ${loop
+    .split(
+      `
+`,
+    )
+    .join(` `)}`, () => {
+    const { halted, took } = guarded(loop);
+    assert.ok(halted, `цикл не прервался`);
+    assert.ok(took < 1000, `прервался только через ${took} мс`);
+  });
+}
+
+test(`конечный цикл сторож не трогает`, () => {
+  assert.deepEqual(guarded(`for (let i = 0; i < 1000; i++) {}`), {
+    halted: false,
+  });
+});
+
+test(`скобки вокруг тела без скобок не меняют смысл`, () => {
+  const code = `let a = 0;
+if (a) while (a) a--; else a = 5;
+a;`;
+  const context = vm.createContext({ __s: () => {}, __g: () => {} });
+  assert.equal(vm.runInContext(instrument(code).code, context), 5);
+});
+
+test(`столбцы правее сторожа возвращаются на место`, () => {
+  const code = `while (true) { document.querySelector(\`#lamb\`).x.y; }`;
+  const { plain, traced, marked } = compare(code);
+  assert.equal(
+    traced.text,
+    `TypeError: Cannot read properties of null (reading 'x')`,
+  );
+  assert.equal(marked.map(traced.line, traced.column), plain.column);
 });
