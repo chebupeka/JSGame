@@ -38,9 +38,11 @@ export const installDevTools = ({
 }) => {
   checkPixels(canvas, state);
 
-  // Для проверок из консоли DevTools: jsgame.state, jsgame.setCode(`…`).
+  // Для проверок из консоли DevTools: jsgame.state, jsgame.render(),
+  // jsgame.setCode(`…`).
   window.jsgame = {
     state,
+    render,
     setCode: (code) =>
       editor.dispatch({
         changes: { from: 0, to: editor.state.doc.length, insert: code },

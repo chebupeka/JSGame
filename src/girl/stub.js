@@ -13,12 +13,19 @@ const DOOR = {
 const SPEED = 18;
 
 // Фигура ровно 14 в ширину: столько места под неё заложено на полу.
-export const drawSilhouette = (ctx, x, feet, height, step = 0) => {
+export const drawSilhouette = (
+  ctx,
+  x,
+  feet,
+  height,
+  step = 0,
+  color = grey[4],
+) => {
   const top = feet - height;
-  rect(ctx, grey[4], x + 4, top, 6, 6);
-  rect(ctx, grey[4], x, top + 6, 14, height - 12);
-  rect(ctx, grey[4], x + 2 - step, feet - 6, 4, 6);
-  rect(ctx, grey[4], x + 8 + step, feet - 6, 4, 6);
+  rect(ctx, color, x + 4, top, 6, 6);
+  rect(ctx, color, x, top + 6, 14, height - 12);
+  rect(ctx, color, x + 2 - step, feet - 6, 4, 6);
+  rect(ctx, color, x + 8 + step, feet - 6, 4, 6);
 };
 
 export const createGirl = () => ({ mode: `stand`, x: START.x, progress: 0 });
@@ -34,16 +41,31 @@ export const updateGirl = (girl, { lampOn }, dt) => {
   if (girl.progress === 1) girl.mode = `gone`;
 };
 
+// Её путь: от полосы дневного света до порога двери. Свет лампы ложится
+// ровно на эту дорожку (src/render/light.js).
+export const GIRL_PATH = [
+  [START.x + 7, START.feet],
+  [DOOR.x + 7, DOOR.feet],
+];
+
+// За освещённым порогом она растворяется в темноте по ступеням палитры.
+const FADE = [
+  [0.9, grey[4]],
+  [0.95, grey[3]],
+  [1, grey[2]],
+];
+
 export const drawGirl = (ctx, girl, time) => {
   if (girl.mode === `gone`) return;
 
   const { progress } = girl;
   const x = Math.round(START.x + (DOOR.x - START.x) * progress);
   const feet = Math.round(START.feet + (DOOR.feet - START.feet) * progress);
+  const color = FADE.find(([until]) => progress < until)?.[1] ?? grey[2];
 
   if (girl.mode === `walk`) {
-    drawSilhouette(ctx, x, feet, 36, Math.floor(time / 180) % 2);
+    drawSilhouette(ctx, x, feet, 36, Math.floor(time / 180) % 2, color);
   } else {
-    drawSilhouette(ctx, x, feet - (Math.floor(time / 700) % 2), 36);
+    drawSilhouette(ctx, x, feet - (Math.floor(time / 700) % 2), 36, 0, color);
   }
 };

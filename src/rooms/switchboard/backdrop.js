@@ -9,6 +9,7 @@ export const SWITCHBOARD = {
   shutter: { x: 150, y: 14, w: 108, h: 64 },
   slit: 205,
   lamp: { x: 112, y: 33, w: 7, h: 9 },
+  floor: { top: 79, bottom: 107 },
 };
 
 const { door, shutter, slit } = SWITCHBOARD;
@@ -47,8 +48,6 @@ const drawShutter = (ctx) => {
   for (let y = shutter.y + 2; y < shutter.y + shutter.h; y += 3) {
     rect(ctx, grey[1], shutter.x, y, shutter.w, 1);
   }
-
-  rect(ctx, white, slit, shutter.y, 1, shutter.h);
 };
 
 const drawFloor = (ctx) => {
@@ -58,8 +57,11 @@ const drawFloor = (ctx) => {
   for (const y of [84, 93, 106, 124, 150]) rect(ctx, grey[0], 0, y, 320, 1);
 };
 
-// Полоса дневного света из щели ложится на пол и уходит к камере.
-const drawLightStrip = (ctx) => {
+// Дневной свет снаружи: щель в ставне и полоса из неё на полу к камере.
+// Рисуется поверх всего в комнате — его не делал игрок, и он есть всегда.
+export const drawDaylight = (ctx) => {
+  rect(ctx, white, slit, shutter.y, 1, shutter.h);
+
   for (let y = 79; y < 180; y++) {
     const x = Math.round(slit - (y - 78) * 0.35);
     const width = 1 + Math.floor((y - 78) / 40);
@@ -73,8 +75,6 @@ const drawLightStrip = (ctx) => {
 export const drawSwitchboard = (ctx, { roomPresent }) => {
   if (!roomPresent) {
     rect(ctx, grey[0], 0, 0, 320, 180);
-    rect(ctx, white, slit, shutter.y, 1, shutter.h);
-    drawLightStrip(ctx);
     return;
   }
 
@@ -82,5 +82,4 @@ export const drawSwitchboard = (ctx, { roomPresent }) => {
   drawDoor(ctx);
   drawShutter(ctx);
   drawFloor(ctx);
-  drawLightStrip(ctx);
 };
