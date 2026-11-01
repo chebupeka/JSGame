@@ -8,10 +8,10 @@ import { parse } from "acorn";
 import { explainError } from "./code/errors.js";
 import { createLivePreview } from "./code/live.js";
 import { findQueries } from "./code/preview.js";
-import { createGirl, resetGirl, updateGirl } from "./girl/girl.js";
+import { createGirl, girlBox, resetGirl, updateGirl } from "./girl/girl.js";
 import { drawScene } from "./render/scene.js";
 import { loadSprites } from "./render/sprites.js";
-import { STENCIL_FONT } from "./render/stencil.js";
+import { STENCIL_FONT, plateText } from "./render/stencil.js";
 import {
   SWITCHBOARD_NAMES,
   SWITCHBOARD_ROOM,
@@ -25,7 +25,8 @@ import { LAMP_TASK } from "./tasks/lamp.js";
 import { createEditor } from "./terminal/editor.js";
 import { isInside } from "./terminal/lever.js";
 import { setNotch } from "./terminal/marks.js";
-import { errorNotes, showNotes } from "./terminal/notes.js";
+import { errorNotes, rawNote, showNotes } from "./terminal/notes.js";
+import { SELECTOR_MARKS, WORDS } from "./terminal/words.js";
 
 const TASK = LAMP_TASK;
 const SMALL = `Разверни окно или нажми F11.`;
@@ -182,13 +183,39 @@ live = createLivePreview({
 });
 live.schedule();
 
-// Наведи мышь на пунктир — на полях объяснение, почему «узнаем при запуске».
-editor.dom.addEventListener(`mouseover`, ({ target }) => {
-  if (target.closest(`.cm-unknown`)) showNotes(UNKNOWN);
+// Наведение мыши: пока мышь на месте, поля показывают справку, а когда
+// она ушла — возвращают своё. Справка не всплывает поверх сцены.
+let hovering = false;
+const hover = (items) => {
+  hovering = true;
+  showNotes(...items);
+};
+const unhover = () => {
+  if (!hovering) return;
+  hovering = false;
+  refreshNotes();
+};
+
+// Слово в коде — справка о нём; пунктир — почему «узнаем при запуске»;
+// # и . в селекторе — «по id» и «по классу».
+editor.dom.addEventListener(`mousemove`, (event) => {
+  if (event.target.closest(`.cm-unknown`)) return hover([UNKNOWN]);
+
+  const pos = editor.posAtCoords({ x: event.clientX, y: event.clientY });
+  if (pos === null) return unhover();
+
+  const { state: doc } = editor;
+  const char = doc.sliceDoc(pos, pos + 1);
+  const before = doc.sliceDoc(pos - 1, pos);
+  if (char === `#` || (char === `.` && /[`'"]/.test(before))) {
+    return hover([SELECTOR_MARKS[char]]);
+  }
+
+  const word = doc.wordAt(pos);
+  const text = word && WORDS[doc.sliceDoc(word.from, word.to)];
+  return text ? hover([text]) : unhover();
 });
-editor.dom.addEventListener(`mouseout`, ({ target }) => {
-  if (target.closest(`.cm-unknown`)) refreshNotes();
-});
+editor.dom.addEventListener(`mouseleave`, unhover);
 
 // Другая раскладка — другой размер шрифта: редактор должен перемерить строки.
 const setLayout = (layout) => {
@@ -224,18 +251,72 @@ const toScene = ({ clientX, clientY }) => {
   };
 };
 
+// Вещь под мышью: по её настоящей рамке из песочницы.
+const thingAt = (point) =>
+  Object.entries(state.world?.things ?? {}).find(
+    ([, { present, rect }]) =>
+      present &&
+      rect.width > 0 &&
+      isInside({ x: rect.x, y: rect.y, w: rect.width, h: rect.height }, point),
+  );
+
 canvas.addEventListener(`pointerdown`, (event) => {
-  if (!isInside(state.layout.lever, toScene(event))) return;
+  const point = toScene(event);
+
+  if (isInside(state.layout.lever, point)) {
+    event.preventDefault();
+    run();
+    editor.focus();
+    return;
+  }
+
+  // Ctrl+клик по вещи вставляет её селектор туда, где курсор, —
+  // как «Copy selector» в DevTools. Табличка вещи вспыхивает.
+  const found = (event.ctrlKey || event.metaKey) && thingAt(point);
+  const selector = found && plateText(found[1]);
+  if (!selector) return;
 
   event.preventDefault();
-  run();
+  editor.dispatch(editor.state.replaceSelection(`\`${selector}\``));
   editor.focus();
+  state.flash = { key: found[0], until: performance.now() + 400 };
 });
 
+// Щуп: навёл мышь на вещь — на полях её настоящий HTML, вещь обведена.
+// На неё щуп не действует: её нет в DOM. Об этом — один раз.
+const HER = `Её не ищи. Она не вещь.`;
+let metHer = false;
+let showingHer = false;
+
 canvas.addEventListener(`pointermove`, (event) => {
-  canvas.style.cursor = isInside(state.layout.lever, toScene(event))
-    ? `pointer`
-    : ``;
+  const point = toScene(event);
+  const found = thingAt(point);
+  const onLever = isInside(state.layout.lever, point);
+  state.probe = found?.[0] ?? null;
+  canvas.style.cursor = onLever || found ? `pointer` : ``;
+
+  if (found) {
+    return hover([
+      rawNote(found[1].tag),
+      `Ctrl+клик — вставить её селектор в код.`,
+    ]);
+  }
+
+  const her = girlBox(state.girl);
+  if (her && isInside(her, point) && !metHer) {
+    showingHer = true;
+    return hover([HER]);
+  }
+  if (showingHer) {
+    showingHer = false;
+    metHer = true;
+  }
+  unhover();
+});
+
+canvas.addEventListener(`pointerleave`, () => {
+  state.probe = null;
+  unhover();
 });
 
 // Первая загрузка: комната без кода игрока, лампа не горит.

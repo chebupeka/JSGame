@@ -29,10 +29,12 @@ const drawLight = (ctx, lamp) => {
   });
 };
 
-// Таблички вещей: настоящий id или класс. Горят, если к вещи тянется провод.
-const drawPlates = (ctx, things, wires) => {
+// Таблички вещей: настоящий id или класс. Горят, если к вещи тянется
+// провод, и вспыхивают, когда её селектор вставили Ctrl+кликом.
+const drawPlates = (ctx, things, wires, flash, time) => {
   SWITCHBOARD_THINGS.forEach(({ key, plate }) => {
-    const lit = wires.some((wire) => wire.key === key);
+    const flashing = flash?.key === key && time < flash.until;
+    const lit = flashing || wires.some((wire) => wire.key === key);
     drawPlate(ctx, plate, plateText(things?.[key]), lit);
   });
 };
@@ -58,12 +60,15 @@ const drawWires = (ctx, wires, { socket }) => {
 export const drawScene = (ctx, state, time) => {
   const { layout, overlays, world, girl, lever, sprites, wires } = state;
   const roomPresent = world?.room.present ?? true;
+  const probed = state.probe && world?.things[state.probe];
 
   drawSwitchboard(ctx, { roomPresent, background: sprites?.background });
   if (roomPresent) {
     drawSwitchboardThings(ctx, world?.things, sprites);
-    drawPlates(ctx, world?.things, wires);
+    drawPlates(ctx, world?.things, wires, state.flash, time);
     drawLight(ctx, world?.things.lamp);
+    // Вещь под щупом обведена пунктиром.
+    if (probed?.present) drawDottedOutline(ctx, probed.rect);
   }
   drawDaylight(ctx);
   overlays.forEach((draw) => draw(ctx, layout));

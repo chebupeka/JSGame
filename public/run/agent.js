@@ -24,6 +24,9 @@ const native = {
   listLength: getter(NodeList.prototype, `length`),
   listItem: NodeList.prototype.item,
   id: getter(Element.prototype, `id`),
+  outerHTML: getter(Element.prototype, `outerHTML`),
+  indexOf: String.prototype.indexOf,
+  slice: String.prototype.slice,
   mapGet: WeakMap.prototype.get,
   mapSet: WeakMap.prototype.set,
   portStart: MessagePort.prototype.start,
@@ -57,6 +60,14 @@ const native = {
 const read = {
   isConnected: (element) => apply(native.isConnected, element, []),
   id: (element) => apply(native.id, element, []),
+  // Открывающий тег, как в F12: <div id="lamp" class="lamp on">.
+  tag: (element) => {
+    const html = apply(native.outerHTML, element, []);
+    return apply(native.slice, html, [
+      0,
+      apply(native.indexOf, html, [`>`]) + 1,
+    ]);
+  },
   className: (element) => apply(native.className, element, []),
   background: (element) =>
     apply(native.propertyValue, apply(native.computedStyle, win, [element]), [

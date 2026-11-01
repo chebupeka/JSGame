@@ -85,12 +85,23 @@ const frames = (sheet) => Math.max(1, Math.floor(sheet.width / CELL.w));
 // проёма, и растворяется в нём.
 const FADE_FROM = 0.92;
 
+const feetOf = ({ progress }) => ({
+  feetX: Math.round(START.x + (DOOR.x - START.x) * progress),
+  feetY: Math.round(START.feet + (DOOR.feet - START.feet) * progress),
+});
+
+// Где она в кадре: щуп на ней ничего не найдёт — её нет в DOM.
+export const girlBox = (girl) => {
+  if (girl.mode === `gone`) return null;
+  const { feetX, feetY } = feetOf(girl);
+  return { x: feetX - 7, y: feetY - 36, w: 14, h: 36 };
+};
+
 export const drawGirl = (ctx, girl, time, sheets) => {
   if (girl.mode === `gone`) return;
 
   const { progress } = girl;
-  const feetX = Math.round(START.x + (DOOR.x - START.x) * progress);
-  const feetY = Math.round(START.feet + (DOOR.feet - START.feet) * progress);
+  const { feetX, feetY } = feetOf(girl);
   const fading = progress >= FADE_FROM;
   const walking = girl.mode === `walk`;
 

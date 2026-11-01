@@ -9,6 +9,9 @@ const paragraph = (text, className) => {
   return p;
 };
 
+// Текст как в консоли или в F12: дословно, прямым мелом.
+export const rawNote = (text) => paragraph(text, `raw`);
+
 // Пометки — строки или готовые узлы (разбор ошибки).
 export const showNotes = (...items) => {
   notes.replaceChildren(
@@ -19,7 +22,7 @@ export const showNotes = (...items) => {
 // Разбор ошибки: текст браузера дословно, «строка N» (щелчок ставит туда
 // курсор), части с объяснением и фраза по-русски.
 export const errorNotes = ({ text, line, parts, sentences }, onJump) => {
-  const nodes = [paragraph(text, `error-text`)];
+  const nodes = [rawNote(text)];
 
   if (line) {
     const jump = paragraph(`строка ${line}`, `jump`);

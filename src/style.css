@@ -95,8 +95,8 @@ body {
   margin: 0 0 calc(var(--notes-line) * var(--u) * 1px);
 }
 
-/* Разбор ошибки: текст браузера — как в консоли, прямым мелом. */
-#notes .error-text,
+/* Текст браузера и HTML под щупом — как в консоли, прямым мелом. */
+#notes .raw,
 #notes code {
   color: var(--chalk);
   font-style: normal;

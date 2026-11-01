@@ -39,6 +39,7 @@ test(`у SyntaxError и у брошенной строки места нет`, (
 const fakeRead = {
   isConnected: (element) => element.connected,
   id: (element) => element.id,
+  tag: (element) => element.tag,
   className: (element) => element.className,
   background: (element) => element.background,
   rect: (element) => element.rect,
@@ -47,6 +48,7 @@ const fakeRead = {
 const lamp = {
   connected: true,
   id: `lamp`,
+  tag: `<div id="lamp" class="lamp on">`,
   className: `lamp on`,
   background: `rgb(87, 154, 243)`,
   rect: { x: 112, y: 33, width: 7, height: 9 },
@@ -56,6 +58,7 @@ test(`снимок вещи: id, классы, цвет и рамка из вё�
   assert.deepEqual(readThing(lamp, fakeRead), {
     present: true,
     id: `lamp`,
+    tag: `<div id="lamp" class="lamp on">`,
     className: `lamp on`,
     background: `rgb(87, 154, 243)`,
     rect: { x: 112, y: 33, width: 7, height: 9 },

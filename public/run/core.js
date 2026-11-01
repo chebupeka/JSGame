@@ -38,6 +38,7 @@ export const readThing = (element, read) => {
   return {
     present: true,
     id: read.id(element),
+    tag: read.tag(element),
     className: read.className(element),
     background: read.background(element),
     rect: { x: box.x, y: box.y, width: box.width, height: box.height },
