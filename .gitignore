@@ -8,3 +8,6 @@ dist/
 # Сырые генерации и превью ассетов
 assets/_raw/
 assets/_preview/
+
+# Личные настройки Claude Code
+.claude/settings.local.json

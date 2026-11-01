@@ -1,0 +1,73 @@
+/* Цвета текста живут только в стекле терминала (MECHANICS.md §8).
+   Пиксели мира — только из assets/palette.json. */
+:root {
+  --chalk: #c9cdd2;
+  --keyword: #ffffff;
+  --comment: #9aa1a9;
+  --found: #81b5f6;
+
+  /* Сколько CSS-пикселей в одном пикселе сцены. Ставит src/screen/scale.js. */
+  --u: 4;
+  color-scheme: dark;
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  background: #1b1b1b;
+  user-select: none;
+}
+
+#frame {
+  position: absolute;
+}
+
+#scene {
+  display: block;
+  width: 100%;
+  height: 100%;
+  image-rendering: pixelated;
+}
+
+/* Всё поверх холста ставится в пикселях сцены: --x, --y, --w, --h. */
+.place {
+  position: absolute;
+  left: calc(var(--x) * var(--u) * 1px);
+  top: calc(var(--y) * var(--u) * 1px);
+  width: calc(var(--w) * var(--u) * 1px);
+  height: calc(var(--h) * var(--u) * 1px);
+}
+
+/* Новичок должен видеть настоящие => и !==, поэтому лигатуры выключены. */
+.mono {
+  font-family: "JetBrains Mono", monospace;
+  font-variant-ligatures: none;
+  font-feature-settings:
+    "liga" 0,
+    "calt" 0;
+}
+
+#nameplate {
+  color: var(--comment);
+  font-size: calc(var(--plate-font) * var(--u) * 1px);
+  line-height: calc(var(--h) * var(--u) * 1px);
+  white-space: nowrap;
+}
+
+#code {
+  user-select: text;
+}
+
+#notes {
+  overflow: hidden;
+  color: var(--comment);
+  font-style: italic;
+  font-size: calc(var(--notes-font) * var(--u) * 1px);
+  line-height: calc(var(--notes-line) * var(--u) * 1px);
+}
+
+#notes p {
+  margin: 0 0 calc(var(--notes-line) * var(--u) * 1px);
+}
