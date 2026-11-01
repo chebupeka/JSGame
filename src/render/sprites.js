@@ -1,5 +1,7 @@
 import backgroundUrl from "../../assets/sprites/bg-switchroom.png";
+import breakerUrl from "../../assets/sprites/breaker.png";
 import lampUrl from "../../assets/sprites/lamp.png";
+import leverUrl from "../../assets/sprites/lever.png";
 import terminalUrl from "../../assets/sprites/terminal.png";
 import { blueGlow, grey } from "./palette.js";
 
@@ -78,13 +80,15 @@ const loadGirl = async () => {
 };
 
 export const loadSprites = async () => {
-  const [background, lamp, terminal, girl] = await Promise.all([
+  const [background, lamp, terminal, lever, breaker, girl] = await Promise.all([
     load(backgroundUrl),
     load(lampUrl),
     load(terminalUrl),
+    load(leverUrl),
+    load(breakerUrl),
     loadGirl(),
   ]);
-  return { background, lamp, terminal, girl };
+  return { background, lamp, terminal, lever, breaker, girl };
 };
 
 export const drawSprite = (ctx, image, x, y) =>

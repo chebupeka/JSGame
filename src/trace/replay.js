@@ -25,6 +25,28 @@ export const pulseLook = ({ start, kept }, now) => {
 const pulseOver = ({ start }, now) =>
   now >= start + PULSE.run + PULSE.hold + PULSE.fade;
 
+// Провод в пустоту: поиск ничего не нашёл. Импульс добегает до конца,
+// а там ничего — провод повисает и качается. Он серо-синий: ток туда
+// не дошёл (красного в игре нет). sway — на сколько качнулся конец.
+export const looseLook = ({ start, run }, now) => {
+  const t = now - start;
+  if (t < run) return { upTo: t / run, head: true, live: true, sway: 0 };
+
+  const s = (t - run) / 1000;
+  const sway = 4 * Math.sin(s * 4.5) * Math.exp(-s / 2) + Math.sin(s * 2.1);
+  return { upTo: 1, head: false, live: false, sway };
+};
+
+// Свет проседает и возвращается: плотность тени растёт и спадает.
+const dipAt = (dips, now) =>
+  Math.max(
+    0,
+    ...dips
+      .map((at) => (now - at) / DIP)
+      .filter((t) => t >= 0 && t < 1)
+      .map((t) => 0.6 * Math.sin(Math.PI * t)),
+  );
+
 export const createReplay = ({ onWorld, onError, onFlash, onSlowShown }) => {
   // Что рисуют терминал и сцена. Кромки и висящие провода остаются после
   // показа: кромки — до правки кода, провода — до следующего запуска.
@@ -33,6 +55,7 @@ export const createReplay = ({ onWorld, onError, onFlash, onSlowShown }) => {
     bright: new Set(),
     pulses: [],
     kept: [],
+    loose: null,
     dip: 0,
     slow: false,
   };
@@ -44,6 +67,7 @@ export const createReplay = ({ onWorld, onError, onFlash, onSlowShown }) => {
     if (!statement) return;
 
     show.stepped = true;
+    show.last = statement;
     statement.waits.forEach((line) => {
       if (!view.lines.has(line)) view.lines.set(line, `waiting`);
     });
@@ -51,7 +75,11 @@ export const createReplay = ({ onWorld, onError, onFlash, onSlowShown }) => {
   };
 
   const find = (event, begin) => {
-    if (!event.count || event.file !== show.file) return;
+    if (event.file !== show.file) return;
+    if (!event.count) {
+      view.loose = { start: begin, run: show.slow ? PULSE.run : 0 };
+      return;
+    }
 
     const call = show.marked?.callAt(event.line, event.column);
     const wire = { rects: event.rects, keys: event.keys, kept: !!call?.kept };
@@ -65,11 +93,30 @@ export const createReplay = ({ onWorld, onError, onFlash, onSlowShown }) => {
     onFlash(event.keys, arrived, arrived + PULSE.hold);
   };
 
+  // Ошибка при выполнении: свет проседает, а у упавшей инструкции гаснут
+  // строки ниже места ошибки и тела функций — туда код не дошёл.
+  const fail = ({ file, line }, begin) => {
+    if (!line || file !== show.file) return;
+
+    show.dips.push(begin);
+    const statement = show.last;
+    if (!statement) return;
+    statement.waits
+      .filter((at) => view.lines.get(at) === `waiting`)
+      .forEach((at) => view.lines.delete(at));
+    statement.lines
+      .filter((at) => at > line)
+      .forEach((at) => view.lines.delete(at));
+  };
+
   const play = (item, begin) => {
     if (item.kind === `world` || item.kind === `change`) onWorld(item.world);
     if (item.kind === `step`) light(item.n);
     if (item.kind === `find`) find(item, begin);
-    if (item.kind === `error`) onError(item.error);
+    if (item.kind === `error`) {
+      fail(item.error, begin);
+      onError(item.error);
+    }
     if (item.kind === `done`) show.done = true;
   };
 
@@ -80,7 +127,7 @@ export const createReplay = ({ onWorld, onError, onFlash, onSlowShown }) => {
     if (item.kind === `step`) return STEP;
     if (item.kind === `change`) return CHANGE;
     if (item.kind !== `find` || item.file !== show.file) return 0;
-    return item.count ? PULSE.run + PULSE.hold : MISS;
+    return item.count ? PULSE.run + PULSE.hold : PULSE.run + MISS;
   };
 
   const finish = () => {
@@ -90,6 +137,18 @@ export const createReplay = ({ onWorld, onError, onFlash, onSlowShown }) => {
   };
 
   const update = (now) => {
+    if (show) {
+      while (show.queue.length && show.at <= now) {
+        const item = show.queue.shift();
+        const begin = show.at;
+        play(item, begin);
+        show.at = begin + (show.slow ? pace(item) : 0);
+      }
+      // Запись пришла позже, чем показ до неё дошёл, — играем с этой минуты.
+      show.at = Math.max(show.at, now);
+      view.dip = dipAt(show.dips, now);
+    }
+
     view.pulses = view.pulses.filter((pulse) => {
       if (!pulseOver(pulse, now)) return true;
       if (pulse.kept) view.kept.push(pulse);
@@ -100,24 +159,9 @@ export const createReplay = ({ onWorld, onError, onFlash, onSlowShown }) => {
         .filter(({ start }) => now < start + PULSE.run + PULSE.hold)
         .flatMap(({ lines }) => lines),
     );
-    if (!show) return;
 
-    while (show.queue.length && show.at <= now) {
-      const item = show.queue.shift();
-      const begin = show.at;
-      play(item, begin);
-      show.at = begin + (show.slow ? pace(item) : 0);
-    }
-    // Запись пришла позже, чем показ до неё дошёл, — играем с этой минуты.
-    show.at = Math.max(show.at, now);
-
-    // Свет проседает и возвращается: плотность тени растёт и спадает.
-    const t = (now - show.started) / DIP;
-    view.dip = show.dip && t < 1 ? 0.6 * Math.sin(Math.PI * t) : 0;
-
-    if (show.done && !show.finished && !show.queue.length && now >= show.at) {
-      finish();
-    }
+    const over = show?.done && !show.queue.length && now >= show.at;
+    if (over && !show.finished) finish();
   };
 
   return {
@@ -128,13 +172,14 @@ export const createReplay = ({ onWorld, onError, onFlash, onSlowShown }) => {
       show = {
         slow,
         wasSlow: slow,
-        dip,
+        dips: dip ? [now] : [],
         marked,
         file,
         queue: [],
         started: now,
         at: now + (dip ? DIP : slow ? LEAD : 0),
         stepped: false,
+        last: null,
         done: false,
         finished: false,
       };
@@ -142,6 +187,7 @@ export const createReplay = ({ onWorld, onError, onFlash, onSlowShown }) => {
       view.bright.clear();
       view.pulses = [];
       view.kept = [];
+      view.loose = null;
       view.dip = 0;
       view.slow = slow;
     },
@@ -159,9 +205,10 @@ export const createReplay = ({ onWorld, onError, onFlash, onSlowShown }) => {
       if (!show?.slow) return;
       const now = performance.now();
       show.slow = false;
-      show.dip = false;
+      show.dips = [];
       show.at = now;
       view.slow = false;
+      if (view.loose) view.loose.run = 0;
       view.pulses
         .filter(({ kept }) => kept)
         .forEach((pulse) => {

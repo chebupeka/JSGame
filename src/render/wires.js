@@ -29,14 +29,14 @@ export const drawWire = (
   ctx,
   from,
   to,
-  { density, dashed = false, upTo = 1, head = false },
+  { density, dashed = false, upTo = 1, head = false, color = blue },
 ) => {
   const points = wirePoints(from, to);
   const end = Math.round(points.length * upTo);
 
   points.slice(0, end).forEach(([x, y], i) => {
     if (dashed && Math.floor((i + 1) / 3) % 2) return;
-    if (isLit(x, y, density)) dot(ctx, blue, x, y);
+    if (isLit(x, y, density)) dot(ctx, color, x, y);
   });
   if (head) {
     points

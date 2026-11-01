@@ -13,10 +13,10 @@ import { drawMonitor } from "../rooms/switchboard/monitor.js";
 import { SCENE } from "../screen/scale.js";
 import { drawTerminalBody } from "../terminal/body.js";
 import { drawEdges } from "../terminal/edges.js";
-import { drawLever, drawSlowToggle } from "../terminal/lever.js";
-import { pulseLook } from "../trace/replay.js";
+import { drawBreaker, drawLever, drawSlowToggle } from "../terminal/lever.js";
+import { looseLook, pulseLook } from "../trace/replay.js";
 import { drawLampLight } from "./light.js";
-import { grey } from "./palette.js";
+import { blue, blueGlow, grey } from "./palette.js";
 import { ditherFill } from "./pixels.js";
 import { drawPlate, plateText } from "./stencil.js";
 import { drawDottedOutline, drawWire } from "./wires.js";
@@ -68,7 +68,16 @@ const drawWires = (ctx, wires, { socket }) => {
 // Показ по шагам: импульс бежит по проводу к найденной вещи; провод,
 // который держит переменная, висит на 50 %. Рамка из записи бывает 0×0
 // (песочница ещё без размера) — тогда берём рамку вещи из снимка.
-const drawRunWires = (ctx, { pulses, kept }, { socket }, world, time) => {
+// Куда уходит провод в пустоту — от гнезда вверх, в воздух перед ставнем.
+const LOOSE = [-24, -54];
+
+const drawRunWires = (
+  ctx,
+  { pulses, kept, loose },
+  { socket },
+  world,
+  time,
+) => {
   const from = [socket.x + 2, socket.y + 2];
   const ends = ({ rects, keys }) =>
     rects
@@ -84,6 +93,20 @@ const drawRunWires = (ctx, { pulses, kept }, { socket }, world, time) => {
       drawWire(ctx, from, to, pulseLook(pulse, time)),
     ),
   );
+
+  if (loose) {
+    const { upTo, head, live, sway } = looseLook(loose, time);
+    const end = [
+      socket.x + LOOSE[0] + Math.round(sway),
+      socket.y + LOOSE[1] + Math.round(Math.abs(sway) * 0.3),
+    ];
+    drawWire(ctx, from, end, {
+      density: 1,
+      upTo,
+      head,
+      color: live ? blue : blueGlow,
+    });
+  }
 };
 
 // world — последний снимок из песочницы: есть ли комната и вещи в ней.
@@ -111,6 +134,7 @@ export const drawScene = (ctx, state, time) => {
   if (trace.lines.size) drawEdges(ctx, layout, trace, state.lineBoxes());
   drawWires(ctx, wires, layout);
   drawRunWires(ctx, trace, layout, world, time);
-  drawLever(ctx, layout.lever, lever.closed);
+  drawLever(ctx, layout.lever, lever, time, sprites?.lever);
+  drawBreaker(ctx, layout.breaker, state.breaker.tripped, sprites?.breaker);
   drawSlowToggle(ctx, layout.slow, trace.slow);
 };

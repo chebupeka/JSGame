@@ -46,7 +46,8 @@ const state = {
   overlays: [],
   world: null,
   girl: createGirl(),
-  lever: { closed: false },
+  lever: { closed: false, bounced: null },
+  breaker: { tripped: false },
   // null — пометка при входе в задачу; иначе — то, что случилось (ошибка).
   notes: null,
   hint: 0,
@@ -101,10 +102,7 @@ const positionOf = ({ line, column }) => {
 // «похоже на» по настоящим именам в комнате. Щелчок по «строка N» ставит
 // туда курсор, у SyntaxError в коде засечка.
 const showError = (error) => {
-  const place =
-    error.text.startsWith(`SyntaxError`) && !error.line
-      ? syntaxPlace(lastRun)
-      : null;
+  const place = isSyntax(error) ? syntaxPlace(lastRun) : null;
   const located = place ? { ...error, ...place } : error;
   const typed = findQueries(lastRun)
     .filter(({ status }) => status === `check`)
@@ -126,13 +124,28 @@ const showError = (error) => {
   refreshNotes();
 };
 
+// Ошибка в мире (MECHANICS.md §3.3). SyntaxError: файл не прочитан,
+// не выполнилась ни одна строка — рубильник не встаёт в зацеп и отскакивает.
+// Ошибка при выполнении выбивает автомат; всё, что код успел, остаётся.
+const isSyntax = (error) => error.text.startsWith(`SyntaxError`) && !error.line;
+
+const fail = (error) => {
+  if (isSyntax(error)) {
+    state.lever.closed = false;
+    state.lever.bounced = performance.now();
+  } else {
+    state.breaker.tripped = true;
+  }
+  showError(error);
+};
+
 // Показ по шагам: всё, что пришло из песочницы, идёт через него — мир
 // меняется, ошибка появляется ровно тогда, когда показ до неё дошёл.
 const replay = createReplay({
   onWorld: (world) => {
     state.world = world;
   },
-  onError: showError,
+  onError: fail,
   onFlash: (keys, from, until) => {
     state.flash = { keys, from, until };
   },
@@ -194,6 +207,8 @@ if (state.solved) {
 // Первый запуск задачи показывается медленно, и свет проседает.
 const run = ({ slow = false } = {}) => {
   state.lever.closed = true;
+  state.lever.bounced = null;
+  state.breaker.tripped = false;
   state.world = null;
   state.notes = null;
   if (!state.solved) resetGirl(state.girl);
