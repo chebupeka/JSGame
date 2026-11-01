@@ -8,25 +8,19 @@ import { rect } from "../../render/pixels.js";
 export const SWITCHBOARD = {
   door: layout.door,
   shutter: layout.shutter,
-  slit: layout.slit,
   lamp: { x: layout.lampMount.x, y: layout.lampMount.y, w: 14, h: 20 },
   plate: layout.plate,
   monitor: layout.monitor,
   floor: { top: layout.floorY, bottom: 106 },
 };
 
-const { slit } = SWITCHBOARD;
+const { shutter } = SWITCHBOARD;
 
-// Дневной свет снаружи: щель в ставне и полоса из неё на полу к камере.
-// Рисуется поверх всего в комнате — его не делал игрок, и он есть всегда.
+// Дневной свет снаружи: рулонный ставень не доходит до пола, и из-под него
+// пробивается тонкая полоска света, как под дверью. Рисуется поверх всего
+// в комнате — его не делал игрок. Ночью её не будет.
 export const drawDaylight = (ctx) => {
-  rect(ctx, white, slit.x, slit.top, 1, slit.bottom - slit.top);
-
-  for (let y = slit.bottom; y < 180; y++) {
-    const x = Math.round(slit.x - (y - slit.bottom) * 0.35);
-    const width = 1 + Math.floor((y - slit.bottom) / 40);
-    rect(ctx, white, x, y, width, 1);
-  }
+  rect(ctx, white, shutter.x + 2, shutter.y + shutter.h - 1, shutter.w - 4, 1);
 };
 
 // Если игрок стёр комнату (`document.body.innerHTML = ``;`), рисовать нечего:

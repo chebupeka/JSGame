@@ -3,7 +3,8 @@ import { grey } from "../render/palette.js";
 import { rect } from "../render/pixels.js";
 
 // Она. Её нет в DOM: это человек, который пользуется твоим кодом.
-// Стоит в полосе дневного света, а когда лампа загорается, идёт к двери.
+// Стоит перед ставнем спиной к нам, там, где из-под него пробивается
+// дневной свет, а когда лампа загорается, идёт к двери.
 //
 // Спрайты — листы кадров assets/sprites/girl-<действие>.png: клетки 24×40,
 // ноги в точке (12, 39) каждой клетки. Ходьба нарисована лицом вправо,
@@ -13,18 +14,17 @@ const FEET = { x: 12, y: 39 };
 const STEP = 3;
 const SPEED = 18;
 
-const { slit, door } = SWITCHBOARD;
-const START_FEET = 96;
+const { shutter, door } = SWITCHBOARD;
 const START = {
-  x: Math.round(slit.x - (START_FEET - slit.bottom) * 0.35),
-  feet: START_FEET,
+  x: shutter.x + Math.round(shutter.w / 2),
+  feet: 92,
 };
 const DOOR = {
   x: door.x + Math.round(door.w / 2),
   feet: door.y + door.h,
 };
 
-// Её путь (точки ног): от полосы дневного света до порога двери.
+// Её путь (точки ног): от ставня до порога двери.
 // Свет лампы ложится ровно на эту дорожку (src/render/light.js).
 export const GIRL_PATH = [
   [START.x, START.feet],
