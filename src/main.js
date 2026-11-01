@@ -3,12 +3,17 @@ import "@fontsource/jetbrains-mono/400-italic.css";
 import "@fontsource/tiny5/400.css";
 import "./style.css";
 
+import { parse } from "acorn";
+
+import { explainError } from "./code/errors.js";
 import { createLivePreview } from "./code/live.js";
+import { findQueries } from "./code/preview.js";
 import { createGirl, resetGirl, updateGirl } from "./girl/girl.js";
 import { drawScene } from "./render/scene.js";
 import { loadSprites } from "./render/sprites.js";
 import { STENCIL_FONT } from "./render/stencil.js";
 import {
+  SWITCHBOARD_NAMES,
   SWITCHBOARD_ROOM,
   SWITCHBOARD_THINGS,
 } from "./rooms/switchboard/manifest.js";
@@ -19,7 +24,8 @@ import { SCENE, applyFrame, watchFrame } from "./screen/scale.js";
 import { LAMP_TASK } from "./tasks/lamp.js";
 import { createEditor } from "./terminal/editor.js";
 import { isInside } from "./terminal/lever.js";
-import { showNotes } from "./terminal/notes.js";
+import { setNotch } from "./terminal/marks.js";
+import { errorNotes, showNotes } from "./terminal/notes.js";
 
 const TASK = LAMP_TASK;
 const SMALL = `Разверни окно или нажми F11.`;
@@ -59,12 +65,62 @@ const refreshNotes = () =>
   );
 
 // Щелчок по полям — следующая подсказка, каждая конкретнее предыдущей.
-// Подсказки бесплатные, ничего не считается.
+// Подсказки бесплатные, ничего не считается. Разбор ошибки при этом
+// остаётся на месте, подсказка встаёт под ним.
 document.querySelector(`#notes`).addEventListener(`click`, () => {
   state.hint = Math.min(TASK.hints.length, state.hint + 1);
-  state.notes = null;
   refreshNotes();
 });
+
+// Код последнего запуска: разбор ошибки говорит о нём, а не о том,
+// что уже успели напечатать после.
+let lastRun = ``;
+
+// Где браузер споткнулся, читая код: отклонённый import() этого не сообщает,
+// а строгий разбор acorn знает строку и столбец.
+const syntaxPlace = (code) => {
+  try {
+    parse(code, { ecmaVersion: `latest`, sourceType: `module` });
+    return null;
+  } catch ({ loc }) {
+    return loc ? { line: loc.line, column: loc.column + 1 } : null;
+  }
+};
+
+const positionOf = ({ line, column }) => {
+  const { doc } = editor.state;
+  const target = doc.line(Math.min(line, doc.lines));
+  return Math.min(target.to, target.from + Math.max(0, (column ?? 1) - 1));
+};
+
+// Ошибка: текст браузера дословно, разбор по частям, фраза по-русски,
+// «похоже на» по настоящим именам в комнате. Щелчок по «строка N» ставит
+// туда курсор, у SyntaxError в коде засечка.
+const showError = (error) => {
+  const place =
+    error.text.startsWith(`SyntaxError`) && !error.line
+      ? syntaxPlace(lastRun)
+      : null;
+  const located = place ? { ...error, ...place } : error;
+  const typed = findQueries(lastRun)
+    .filter(({ status }) => status === `check`)
+    .map(({ selector }) => selector);
+  const explained = explainError(located, {
+    code: lastRun,
+    typed,
+    ...SWITCHBOARD_NAMES,
+  });
+
+  state.notes = errorNotes(explained, () => {
+    editor.dispatch({
+      selection: { anchor: positionOf(located) },
+      scrollIntoView: true,
+    });
+    editor.focus();
+  });
+  if (place) editor.dispatch({ effects: setNotch.of(positionOf(place)) });
+  refreshNotes();
+};
 
 const sandbox = createSandbox({
   worldContainer: document.querySelector(`#sandbox`),
@@ -76,11 +132,7 @@ const sandbox = createSandbox({
   onSnapshot: (world) => {
     state.world = world;
   },
-  // Пока без разбора по частям (этап 8): дословный текст браузера и строка.
-  onError: ({ text, line }) => {
-    state.notes = [text, ...(line ? [`строка ${line}`] : [])];
-    refreshNotes();
-  },
+  onError: showError,
   onHang: () => {
     state.notes = [HANG];
     refreshNotes();
@@ -99,14 +151,16 @@ state.sprites = sprites;
 ctx.imageSmoothingEnabled = false;
 
 // Запуск — как перезагрузка питания: чистая страница, затем твой код.
-// Она снова стоит в полосе света и ждёт, что получится.
+// Она снова стоит у ставня и ждёт, что получится.
 const run = () => {
   state.lever.closed = true;
   state.world = null;
   state.notes = null;
   resetGirl(state.girl);
   refreshNotes();
-  sandbox.run([{ name: TASK.file, code: editor.state.doc.toString() }]);
+  lastRun = editor.state.doc.toString();
+  editor.dispatch({ effects: setNotch.of(null) });
+  sandbox.run([{ name: TASK.file, code: lastRun }]);
 };
 
 document.querySelector(`#nameplate`).textContent = TASK.file;

@@ -14,7 +14,7 @@ import {
   lineNumbers,
 } from "@codemirror/view";
 
-import { marksField, marksTheme } from "./marks.js";
+import { marksField, marksTheme, notchField } from "./marks.js";
 import { terminalTheme } from "./theme.js";
 
 // Редактор без basicSetup: нет автоскобок, автодополнения и подчёркиваний.
@@ -50,6 +50,7 @@ export const createEditor = (parent, doc, { onRun, onChange }) => {
         terminalTheme,
         marksField,
         marksTheme,
+        notchField,
         EditorView.updateListener.of((update) => {
           if (update.docChanged) onChange(update);
         }),

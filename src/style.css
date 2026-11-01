@@ -94,3 +94,20 @@ body {
 #notes p {
   margin: 0 0 calc(var(--notes-line) * var(--u) * 1px);
 }
+
+/* Разбор ошибки: текст браузера — как в консоли, прямым мелом. */
+#notes .error-text,
+#notes code {
+  color: var(--chalk);
+  font-style: normal;
+}
+
+#notes .jump {
+  text-decoration: underline;
+}
+
+#notes .parts {
+  margin: 0 0 calc(var(--notes-line) * var(--u) * 1px);
+  padding: 0;
+  list-style: none;
+}
