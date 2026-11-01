@@ -14,7 +14,7 @@ const STEP = 3;
 const SPEED = 18;
 
 const { slit, door } = SWITCHBOARD;
-const START_FEET = 100;
+const START_FEET = 96;
 const START = {
   x: Math.round(slit.x - (START_FEET - slit.bottom) * 0.35),
   feet: START_FEET,
