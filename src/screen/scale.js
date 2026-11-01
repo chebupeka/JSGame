@@ -1,12 +1,10 @@
 export const SCENE = { width: 320, height: 180 };
 
 // Целый множитель: сколько физических пикселей экрана приходится на один
-// пиксель сцены. С дробным множителем пиксели расплылись бы. Считаем
+// пиксель сцены. С дробным множителем пиксели расплылись бы. Всё считаем
 // в физических пикселях, чтобы масштаб Windows 125 % и зум браузера
 // не ломали сетку. x и y — сдвиг кадра от угла окна, тоже целый.
-export const computeFrame = ({ width, height, dpr }) => {
-  const screenWidth = Math.round(width * dpr);
-  const screenHeight = Math.round(height * dpr);
+export const computeFrame = ({ screenWidth, screenHeight, dpr }) => {
   const scale = Math.max(
     1,
     Math.floor(
@@ -32,25 +30,29 @@ export const applyFrame = (element, { scale, dpr, x, y }) => {
   });
 };
 
-// Пересчитывает кадр при изменении окна и при смене плотности пикселей
-// (перетащили окно на другой монитор, поменяли зум).
+// Размер окна в физических пикселях меряем точно (device-pixel-content-box).
+// innerWidth целый, и при дробном dpr его произведение врёт на пиксель,
+// а с ним и множитель. Наблюдатель срабатывает и при смене dpr (зум, окно
+// на другом мониторе). Где точного размера нет (Safari), считаем по innerWidth.
 export const watchFrame = (onChange) => {
-  let media;
-
-  const update = () => {
-    media?.removeEventListener(`change`, update);
-    media = matchMedia(`(resolution: ${devicePixelRatio}dppx)`);
-    media.addEventListener(`change`, update);
+  const observer = new ResizeObserver(([entry]) => {
+    const dpr = devicePixelRatio;
+    const exact = entry.devicePixelContentBoxSize?.[0];
 
     onChange(
       computeFrame({
-        width: innerWidth,
-        height: innerHeight,
-        dpr: devicePixelRatio,
+        screenWidth: exact?.inlineSize ?? Math.round(innerWidth * dpr),
+        screenHeight: exact?.blockSize ?? Math.round(innerHeight * dpr),
+        dpr,
       }),
     );
-  };
+  });
 
-  addEventListener(`resize`, update);
-  update();
+  try {
+    observer.observe(document.documentElement, {
+      box: `device-pixel-content-box`,
+    });
+  } catch {
+    observer.observe(document.documentElement);
+  }
 };

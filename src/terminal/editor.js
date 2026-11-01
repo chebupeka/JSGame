@@ -5,7 +5,7 @@ import {
   indentWithTab,
 } from "@codemirror/commands";
 import { javascript } from "@codemirror/lang-javascript";
-import { indentUnit } from "@codemirror/language";
+import { indentOnInput, indentUnit } from "@codemirror/language";
 import { EditorState, Prec } from "@codemirror/state";
 import {
   EditorView,
@@ -17,8 +17,9 @@ import {
 import { terminalTheme } from "./theme.js";
 
 // Редактор без basicSetup: нет автоскобок, автодополнения и подчёркиваний.
-// Новичок печатает каждый символ сам. Tab — отступ в 2 пробела.
-export const createEditor = (parent, doc) => {
+// Новичок печатает каждый символ сам. Tab — отступ в 2 пробела; набранная
+// `}` встаёт на отступ своего блока (ничего не вставляет, только сдвигает).
+export const createEditor = (parent, doc, { onRun }) => {
   const view = new EditorView({
     parent,
     state: EditorState.create({
@@ -29,10 +30,21 @@ export const createEditor = (parent, doc) => {
         lineNumbers(),
         drawSelection(),
         javascript(),
+        indentOnInput(),
         indentUnit.of(`  `),
         EditorState.tabSize.of(2),
-        // Ctrl+Enter — запуск (этап 2). Пока занят, чтобы не вставлял строку.
-        Prec.highest(keymap.of([{ key: `Mod-Enter`, run: () => true }])),
+        // Ctrl+Enter — запуск. Без Prec.highest CodeMirror вставил бы строку.
+        Prec.highest(
+          keymap.of([
+            {
+              key: `Mod-Enter`,
+              run: () => {
+                onRun();
+                return true;
+              },
+            },
+          ]),
+        ),
         keymap.of([...defaultKeymap, ...historyKeymap, indentWithTab]),
         terminalTheme,
       ],

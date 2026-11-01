@@ -43,11 +43,13 @@ const look = EditorView.theme(
     ".cm-cursor": {
       borderLeft: `calc(var(--u) * 0.5px) solid var(--chalk)`,
     },
-    ".cm-selectionBackground, &.cm-focused .cm-selectionBackground": {
-      background: `#343638`,
-    },
+    // Селектор той же силы, что у базовой темы CodeMirror, иначе она перебьёт.
+    "&.cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground, .cm-selectionBackground":
+      { background: `#343638` },
+    // Номера строк «липкие»: код, прокрученный вбок, уходит под них.
+    // Поэтому у них непрозрачный фон стекла, иначе знаки наедут на цифры.
     ".cm-gutters": {
-      backgroundColor: `transparent`,
+      backgroundColor: `#1b1b1b`,
       border: `none`,
       color: `var(--comment)`,
     },

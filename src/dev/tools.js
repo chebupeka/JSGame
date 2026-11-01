@@ -29,8 +29,23 @@ const checkPixels = (canvas, state) => {
   }).observe(canvas, { box: `device-pixel-content-box` });
 };
 
-export const installDevTools = ({ state, render, setLayout, canvas }) => {
+export const installDevTools = ({
+  state,
+  render,
+  setLayout,
+  canvas,
+  editor,
+}) => {
   checkPixels(canvas, state);
+
+  // Для проверок из консоли DevTools: jsgame.state, jsgame.setCode(`…`).
+  window.jsgame = {
+    state,
+    setCode: (code) =>
+      editor.dispatch({
+        changes: { from: 0, to: editor.state.doc.length, insert: code },
+      }),
+  };
 
   addEventListener(
     `keydown`,

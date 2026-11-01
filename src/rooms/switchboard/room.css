@@ -1,0 +1,33 @@
+/* CSS станции для щитовой. Координаты — в пикселях сцены 320×180:
+   iframe песочницы ровно такого размера, поэтому рамки из настоящей
+   вёрстки сразу ложатся на картинку. */
+body {
+  margin: 0;
+}
+
+.room {
+  position: relative;
+  width: 320px;
+  height: 180px;
+}
+
+.lamp {
+  position: absolute;
+  left: 112px;
+  top: 33px;
+  width: 7px;
+  height: 9px;
+  background-color: #3d4248;
+}
+
+.lamp.on {
+  background-color: #579af3;
+}
+
+.door {
+  position: absolute;
+  left: 34px;
+  top: 40px;
+  width: 22px;
+  height: 38px;
+}

@@ -3,6 +3,7 @@ import { dot, rect } from "../../render/pixels.js";
 
 // Временная щитовая кодом, пока Codex не нарисовал фон (этап 9).
 // Дальняя стена кончается на y 78, ниже — пол, по которому она ходит.
+// Лампа и дверь стоят там же, где в room.css.
 export const SWITCHBOARD = {
   door: { x: 34, y: 40, w: 22, h: 38 },
   shutter: { x: 150, y: 14, w: 108, h: 64 },
@@ -10,7 +11,7 @@ export const SWITCHBOARD = {
   lamp: { x: 112, y: 33, w: 7, h: 9 },
 };
 
-const { door, shutter, slit, lamp } = SWITCHBOARD;
+const { door, shutter, slit } = SWITCHBOARD;
 
 const drawWall = (ctx) => {
   rect(ctx, grey[0], 0, 0, 320, 8);
@@ -50,12 +51,6 @@ const drawShutter = (ctx) => {
   rect(ctx, white, slit, shutter.y, 1, shutter.h);
 };
 
-const drawLamp = (ctx) => {
-  rect(ctx, grey[3], lamp.x, lamp.y, lamp.w, 2);
-  rect(ctx, grey[2], lamp.x + 1, lamp.y + 2, lamp.w - 2, lamp.h - 2);
-  rect(ctx, grey[0], lamp.x + 2, lamp.y + 3, lamp.w - 4, lamp.h - 5);
-};
-
 const drawFloor = (ctx) => {
   rect(ctx, grey[1], 0, 78, 320, 102);
   rect(ctx, grey[0], 0, 78, 320, 1);
@@ -72,11 +67,20 @@ const drawLightStrip = (ctx) => {
   }
 };
 
-export const drawSwitchboard = (ctx) => {
+// Если игрок стёр комнату (`document.body.innerHTML = ``;`), рисовать нечего:
+// комната честно гаснет, остаётся только свет снаружи. Следующий запуск —
+// чистая страница, и комната вернётся.
+export const drawSwitchboard = (ctx, { roomPresent }) => {
+  if (!roomPresent) {
+    rect(ctx, grey[0], 0, 0, 320, 180);
+    rect(ctx, white, slit, shutter.y, 1, shutter.h);
+    drawLightStrip(ctx);
+    return;
+  }
+
   drawWall(ctx);
   drawDoor(ctx);
   drawShutter(ctx);
-  drawLamp(ctx);
   drawFloor(ctx);
   drawLightStrip(ctx);
 };

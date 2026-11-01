@@ -8,6 +8,7 @@
 export const LAYOUTS = {
   large: {
     name: `крупный`,
+    sprite: true,
     body: { x: 0, y: 108, w: 224, h: 72 },
     edge: { x: 0, y: 108, w: 224, h: 9 },
     glass: { x: 12, y: 117, w: 200, h: 63 },
@@ -17,6 +18,7 @@ export const LAYOUTS = {
     notes: { x: 153, y: 119, w: 56, h: 60 },
     nameplate: { x: 5, y: 109, w: 40, h: 7 },
     socket: { x: 213, y: 110 },
+    lever: { x: 230, y: 120, w: 16, h: 32 },
     floor: { y: 78, h: 28 },
     gutter: 7,
     codeFont: 3.5,
@@ -38,6 +40,7 @@ export const LAYOUTS = {
     notes: { x: 131, y: 130, w: 48, h: 48 },
     nameplate: { x: 5, y: 122, w: 40, h: 6 },
     socket: { x: 178, y: 123 },
+    lever: { x: 194, y: 134, w: 16, h: 32 },
     floor: { y: 78, h: 44 },
     gutter: 6,
     codeFont: 3,
