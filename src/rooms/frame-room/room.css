@@ -1,0 +1,42 @@
+/* CSS станции для комнаты с фальш-окном. Координаты — в пикселях сцены
+   320×180, те же, что в src/rooms/frame-room/backdrop.js. Стекло окна без
+   света прозрачное: светит только то, что покрасил твой код. */
+.frame-room .frame {
+  position: absolute;
+  background-color: transparent;
+}
+
+/* Большое окно на дальней стене — первое по разметке. */
+.frame-room > .frame:first-child {
+  left: 136px;
+  top: 22px;
+  width: 56px;
+  height: 30px;
+}
+
+/* Окошко над дверью — сразу после двери. */
+.frame-room > .door + .frame {
+  left: 225px;
+  top: 26px;
+  width: 22px;
+  height: 8px;
+}
+
+.frame-room .door {
+  position: absolute;
+  left: 226px;
+  top: 39px;
+  width: 20px;
+  height: 42px;
+}
+
+#frame-picker {
+  position: absolute;
+  left: 260px;
+  top: 58px;
+  width: 56px;
+  height: 24px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}

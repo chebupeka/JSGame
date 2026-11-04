@@ -112,6 +112,10 @@ body {
   font-style: normal;
 }
 
+#notes .code {
+  white-space: pre-wrap;
+}
+
 #notes .jump {
   text-decoration: underline;
 }

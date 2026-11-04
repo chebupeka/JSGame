@@ -95,6 +95,7 @@ export const drawScene = (ctx, state, time) => {
     flash: state.flash,
     time,
     solved: state.solved,
+    glow: state.glow,
   });
   // Вещь под щупом обведена пунктиром.
   if (roomPresent && probed?.present) drawDottedOutline(ctx, probed.rect);
@@ -102,7 +103,7 @@ export const drawScene = (ctx, state, time) => {
   overlays.forEach((draw) => draw(ctx, layout));
   drawGirl(ctx, girl, time, sprites?.girl);
   // Свет в комнате проседает: первый медленный показ, ошибка, сторож.
-  const dim = Math.max(trace.dip, state.dim ?? 0);
+  const dim = Math.max(trace.dip * (state.calm ? 0.4 : 1), state.dim ?? 0);
   ditherFill(ctx, grey[0], dim, 0, 0, SCENE.width, SCENE.height);
   drawTerminalBody(ctx, layout, sprites?.terminal);
   if (trace.lines.size) drawEdges(ctx, layout, trace, state.lineBoxes());

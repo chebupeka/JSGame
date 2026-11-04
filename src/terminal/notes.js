@@ -12,11 +12,15 @@ const paragraph = (text, className) => {
 // Текст как в консоли или в F12: дословно, прямым мелом.
 export const rawNote = (text) => paragraph(text, `raw`);
 
-// Пометки — строки или готовые узлы (разбор ошибки).
+// Пометки — строки или готовые узлы (разбор ошибки). Строка в несколько
+// строк — это код подсказки: он идёт мелом и сохраняет отступы.
+const noteOf = (item) => {
+  if (typeof item !== `string`) return item;
+  return item.includes(`\n`) ? paragraph(item, `raw code`) : paragraph(item);
+};
+
 export const showNotes = (...items) => {
-  notes.replaceChildren(
-    ...items.map((item) => (typeof item === `string` ? paragraph(item) : item)),
-  );
+  notes.replaceChildren(...items.map(noteOf));
 };
 
 // Разбор ошибки: текст браузера дословно, «строка N» (щелчок ставит туда

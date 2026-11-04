@@ -30,3 +30,36 @@ test(`лампа в CSS стоит на креплении с картинки`,
 test(`дверь в CSS совпадает с проёмом на картинке`, () => {
   assert.deepEqual(box(`.door`), layout.door);
 });
+
+// Комната с фальш-окном: окна, дверь и ручка в CSS — там же, где на фоне.
+const frameCss = readFileSync(
+  new URL(`../src/rooms/frame-room/room.css`, import.meta.url),
+  `utf8`,
+);
+const { FRAME_ROOM } = await import(`../src/rooms/frame-room/backdrop.js`);
+
+const frameBox = (selector) => {
+  const at = frameCss.indexOf(`${selector} {`);
+  const block = frameCss.slice(at, frameCss.indexOf(`}`, at));
+  const value = (name) =>
+    Number(block.match(new RegExp(`${name}:\\s*(\\d+)px`))[1]);
+  return {
+    x: value(`left`),
+    y: value(`top`),
+    w: value(`width`),
+    h: value(`height`),
+  };
+};
+
+test(`окна, дверь и ручка в CSS — на своих местах фона`, () => {
+  assert.deepEqual(
+    frameBox(`.frame-room > .frame:first-child`),
+    FRAME_ROOM.frameBig,
+  );
+  assert.deepEqual(
+    frameBox(`.frame-room > .door + .frame`),
+    FRAME_ROOM.frameSmall,
+  );
+  assert.deepEqual(frameBox(`.frame-room .door`), FRAME_ROOM.doorOut);
+  assert.deepEqual(frameBox(`#frame-picker`), FRAME_ROOM.knob);
+});

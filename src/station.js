@@ -1,13 +1,14 @@
+import { FRAME_PLACE } from "./rooms/frame-room/place.js";
 import { SWITCHBOARD_PLACE } from "./rooms/switchboard/place.js";
 
 // Места станции по порядку дня (MECHANICS.md §7). Место — комната, её
 // вещи, задача и её путь по комнате.
-export const PLACES = [SWITCHBOARD_PLACE];
+export const PLACES = [SWITCHBOARD_PLACE, FRAME_PLACE];
 
 // Станция — один документ: все комнаты друг под другом, каждая 320×180.
 // Решённые файлы работают в нём всегда, поэтому из любой комнаты код
-// находит вещи прошлых. На экране одна комната: песочница прокручена
-// к ней, и рамки её вещей сразу совпадают с пикселями сцены.
+// находит вещи прошлых. На экране одна комната: агент считает рамки вещей
+// от её верха, и они сразу совпадают с пикселями сцены.
 const ROOM_HEIGHT = 180;
 
 const STATION_CSS = `
@@ -42,7 +43,7 @@ export const STATION_NAMES = {
   labels: Object.assign({}, ...PLACES.map(({ names }) => names.labels)),
 };
 
-// На сколько прокручена песочница, чтобы на экране было это место.
+// Где верх комнаты этого места в документе станции.
 export const viewOf = (place) => PLACES.indexOf(place) * ROOM_HEIGHT;
 
 // Где игрок сейчас: первое место с нерешённой задачей, а если решено

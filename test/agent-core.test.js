@@ -70,6 +70,7 @@ const fakeRead = {
   tag: (element) => element.tag,
   className: (element) => element.className,
   background: (element) => element.background,
+  value: (element) => element.value,
   rect: (element) => element.rect,
 };
 
@@ -89,8 +90,14 @@ test(`снимок вещи: id, классы, цвет и рамка из вё�
     tag: `<div id="lamp" class="lamp on">`,
     className: `lamp on`,
     background: `rgb(87, 154, 243)`,
+    value: undefined,
     rect: { x: 112, y: 33, width: 7, height: 9 },
   });
+});
+
+test(`у поля ввода в снимке его значение`, () => {
+  const picker = { ...lamp, id: `frame-picker`, value: `#33475f` };
+  assert.equal(readThing(picker, fakeRead).value, `#33475f`);
 });
 
 test(`вещи нет или её сняли со страницы`, () => {

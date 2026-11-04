@@ -11,6 +11,8 @@ import { createLivePreview } from "./code/live.js";
 import { findQueries } from "./code/preview.js";
 import { createGirl, girlBox, resetGirl, updateGirl } from "./girl/girl.js";
 import { loadProgress, saveProgress } from "./progress.js";
+import { glassLevel } from "./render/glass.js";
+import { GLOW_RATE, easeGlow } from "./render/glow.js";
 import { drawScene } from "./render/scene.js";
 import { loadSprites } from "./render/sprites.js";
 import { STENCIL_FONT, plateText } from "./render/stencil.js";
@@ -60,6 +62,8 @@ const state = {
   girl: createGirl(place.path),
   // Переход в следующее место после успеха: тишина, затемнение, комната.
   transition: null,
+  // Сглаженный свет стёкол: ограничитель вспышек.
+  glow: {},
   lever: { closed: false, bounced: null },
   breaker: { tripped: false },
   // Когда песочница перестала отвечать (мир застыл) и когда клацнул сторож.
@@ -498,15 +502,45 @@ canvas.addEventListener(`pointerdown`, (event) => {
 
   // Ctrl+клик по вещи вставляет её селектор туда, где курсор, —
   // как «Copy selector» в DevTools. Табличка вещи вспыхивает.
-  const found = (event.ctrlKey || event.metaKey) && thingAt(point);
-  const selector = found && plateText(found[1]);
-  if (!selector) return;
+  const found = thingAt(point);
+  const selector = (event.ctrlKey || event.metaKey) && plateText(found?.[1]);
+  if (selector) {
+    event.preventDefault();
+    editor.dispatch(editor.state.replaceSelection(`\`${selector}\``));
+    editor.focus();
+    const now = performance.now();
+    state.flash = { keys: [found[0]], from: now, until: now + 400 };
+    return;
+  }
 
-  event.preventDefault();
-  editor.dispatch(editor.state.replaceSelection(`\`${selector}\``));
-  editor.focus();
+  // Ручку можно крутить и самому, мышью.
+  if (place.knob && found?.[0] === place.knob.key) {
+    event.preventDefault();
+    canvas.setPointerCapture(event.pointerId);
+    turning = { value: null, sent: 0 };
+    turnTo(point);
+  }
+});
+
+// Поворот ручки — настоящее значение и настоящее событие input, как от
+// руки; отпустил — change. Не чаще раза в кадр: каждое событие — снимок.
+let turning = null;
+const turnTo = (point, force = false) => {
+  const { key, at, turn, center } = place.knob;
+  const value = turn(at(point, center));
   const now = performance.now();
-  state.flash = { keys: [found[0]], from: now, until: now + 400 };
+  if (value === turning.value || (!force && now - turning.sent < 16)) return;
+
+  turning.value = value;
+  turning.sent = now;
+  sandbox.act({ key, value, event: `input` });
+};
+
+canvas.addEventListener(`pointerup`, (event) => {
+  if (!turning) return;
+  turnTo(toScene(event), true);
+  sandbox.act({ key: place.knob.key, event: `change` });
+  turning = null;
 });
 
 // Щуп: навёл мышь на вещь — на полях её настоящий HTML, вещь обведена.
@@ -517,6 +551,7 @@ let showingHer = false;
 
 canvas.addEventListener(`pointermove`, (event) => {
   const point = toScene(event);
+  if (turning) return turnTo(point);
   const found = thingAt(point);
   const onSwitch =
     isInside(state.layout.lever, point) || isInside(state.layout.slow, point);
@@ -556,6 +591,7 @@ const enter = (next) => {
   state.solved = progress.solved[task.file] ?? null;
   state.world = null;
   state.wires = [];
+  state.glow = {};
   state.hint = 0;
   state.notes = state.solved ? [] : null;
   state.lever.closed = false;
@@ -605,9 +641,17 @@ const tick = (now) => {
   const frozen = state.stalled !== null;
 
   if (!frozen) {
+    const dt = Math.min(0.1, (now - last) / 1000);
     replay.update(now);
-    updateGirl(state.girl, { ready }, Math.min(0.1, (now - last) / 1000));
+    updateGirl(state.girl, { ready }, dt);
+    const rate = settings.calm ? GLOW_RATE.calm : GLOW_RATE.normal;
+    (place.glows ?? []).forEach((key) => {
+      const thing = state.world?.things[key];
+      const level = thing?.present ? glassLevel(thing.background) : null;
+      state.glow[key] = easeGlow(state.glow[key], level, dt, rate);
+    });
   }
+  state.calm = settings.calm;
   shownote.hidden = !replay.view.slow;
   const left = before !== `gone` && state.girl.mode === `gone`;
   if (left && !state.solved) succeed();

@@ -188,5 +188,8 @@ export const createSandbox = ({
   startPreview();
   // Другое место — другие решённые файлы и другая прокрутка: превью
   // прогревается заново.
-  return { run, query, refresh: startPreview };
+  // Действие с вещью в мире на экране (повернуть ручку). В превью — нет.
+  const act = (message) => world?.post({ type: `act`, ...message });
+
+  return { run, query, act, refresh: startPreview };
 };

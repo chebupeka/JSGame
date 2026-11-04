@@ -30,6 +30,7 @@ const ownOrigin = location.origin;
 const NativeBlob = Blob;
 const NativeMutationObserver = MutationObserver;
 const NativeError = Error;
+const NativeEvent = Event;
 const define = Object.defineProperty;
 
 const native = {
@@ -69,11 +70,14 @@ const native = {
   observe: MutationObserver.prototype.observe,
   takeRecords: MutationObserver.prototype.takeRecords,
   setTimeout: win.setTimeout,
-  scrollTo: win.scrollTo,
   createObjectURL: URL.createObjectURL,
   then: Promise.prototype.then,
   errorText: Error.prototype.toString,
   now: Performance.prototype.now,
+  inputValue: getter(HTMLInputElement.prototype, `value`),
+  setInputValue: setter(HTMLInputElement.prototype, `value`),
+  dispatch: EventTarget.prototype.dispatchEvent,
+  animations: Document.prototype.getAnimations,
 };
 const clock = () => apply(native.now, performance, []);
 
@@ -93,16 +97,31 @@ const read = {
     apply(native.propertyValue, apply(native.computedStyle, win, [element]), [
       `background-color`,
     ]),
+  // Не поле ввода — значения нет: настоящий геттер такой вызов отвергает.
+  value: (element) => {
+    try {
+      return apply(native.inputValue, element, []);
+    } catch {
+      return undefined;
+    }
+  },
+  // Рамка в пикселях сцены текущей комнаты: от верха документа минус
+  // сдвиг комнаты в станции. Прокрутку не трогаем — так рамки не зависят
+  // ни от размера окна песочницы, ни от того, куда она прокручена.
   rect: (element) => {
     const box = apply(native.rect, element, []);
+    const page = apply(native.rect, apply(native.root, doc, []), []);
     return {
-      x: apply(native.rectX, box, []),
-      y: apply(native.rectY, box, []),
+      x: apply(native.rectX, box, []) - apply(native.rectX, page, []),
+      y: apply(native.rectY, box, []) - apply(native.rectY, page, []) - view,
       width: apply(native.rectWidth, box, []),
       height: apply(native.rectHeight, box, []),
     };
   },
 };
+
+// Сдвиг комнаты на экране от верха станции (hello.view).
+let view = 0;
 
 const isGameOrigin = (origin) => {
   for (let i = 0; i < GAME_ORIGINS.length; i++) {
@@ -143,14 +162,13 @@ const buildRoom = ({ html, css }) => {
   apply(native.setHtml, apply(native.body, doc, []), [html]);
 };
 
-const start = (port, { room, things, files, view, trace }) => {
+const start = (port, { room, things, files, view: top = 0, trace }) => {
   const send = (message) => apply(native.post, port, [message]);
 
   buildRoom(room);
-  // Станция — все комнаты друг под другом. На экране одна: прокручиваем
-  // к ней, и рамки её вещей совпадают с пикселями сцены.
-  const scroll = () => apply(native.scrollTo, win, [0, view]);
-  scroll();
+  // Станция — все комнаты друг под другом. На экране одна: рамки вещей
+  // считаются от её верха (read.rect).
+  view = top;
   const find = (selector) => apply(native.querySelector, doc, [selector]);
   const roomRoot = find(room.root);
   const bound = bindThings(things, find);
@@ -176,11 +194,25 @@ const start = (port, { room, things, files, view, trace }) => {
 
   // Превью спрашивает, что находят селекторы. Отвечаем настоящим
   // querySelectorAll — только чтение, комната от этого не меняется.
+  // Действие игры с вещью — как руками: ручку повернули мышью или её
+  // крутит она. Значение ставит настоящий сеттер, событие — настоящее.
+  // Только в мире на экране, в превью — никогда.
+  const act = ({ key, value, event }) => {
+    const element = bound[key];
+    if (!trace || !element) return;
+    if (value !== undefined) apply(native.setInputValue, element, [value]);
+    apply(native.dispatch, element, [
+      new NativeEvent(event, { bubbles: true }),
+    ]);
+    scheduleSnapshot();
+  };
+
   apply(native.listen, port, [
     `message`,
     (event) => {
       const data = apply(native.eventData, event, []);
-      if (!data || data.type !== `query`) return;
+      if (data?.type === `act`) return act(data);
+      if (data?.type !== `query`) return;
       send({
         type: `matches`,
         id: data.id,
@@ -218,6 +250,9 @@ const start = (port, { room, things, files, view, trace }) => {
       () => {
         pending = false;
         sendSnapshot();
+        // Идёт CSS-переход — MutationObserver его не видит: смотрим
+        // каждый кадр, пока он не кончится.
+        if (apply(native.animations, doc, []).length) scheduleSnapshot();
       },
       0,
     ]);
@@ -233,13 +268,7 @@ const start = (port, { room, things, files, view, trace }) => {
 
   // iframe в отдельном процессе получает свой размер от браузера не сразу:
   // до этого раскладки нет и все рамки 0×0. Пришёл размер — новый снимок.
-  apply(native.listen, win, [
-    `resize`,
-    () => {
-      scroll();
-      scheduleSnapshot();
-    },
-  ]);
+  apply(native.listen, win, [`resize`, scheduleSnapshot]);
 
   // Пульс: пропал дольше секунды — игра считает песочницу зависшей.
   const pulse = () => {

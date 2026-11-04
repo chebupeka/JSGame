@@ -2,7 +2,7 @@
 // Esc (первый выводит фокус из терминала). Простая страница без украшений.
 // Хранилище может быть недоступно — тогда настройки живут до перезагрузки.
 const KEY = `jsgame.settings.v1`;
-const DEFAULTS = { sound: true, volume: 0.6, captions: false };
+const DEFAULTS = { sound: true, volume: 0.6, captions: false, calm: false };
 
 export const loadSettings = () => {
   try {
@@ -29,7 +29,9 @@ export const createSettingsPage = (root, settings, onChange) => {
       <input type="range" name="volume" min="0" max="1" step="0.05" />
     </label>
     <label><input type="checkbox" name="captions" /> Подписи к звукам</label>
+    <label><input type="checkbox" name="calm" /> Меньше движения</label>
     <p>Подписи появляются на верхней кромке терминала.</p>
+    <p>Меньше движения: свет меняется плавнее, просадки света слабее.</p>
     <p>Esc — назад к терминалу.</p>
   `;
 
@@ -37,6 +39,7 @@ export const createSettingsPage = (root, settings, onChange) => {
   field(`sound`).checked = settings.sound;
   field(`volume`).value = settings.volume;
   field(`captions`).checked = settings.captions;
+  field(`calm`).checked = settings.calm;
 
   root.addEventListener(`input`, ({ target }) => {
     settings[target.name] =
