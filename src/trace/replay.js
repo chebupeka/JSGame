@@ -17,20 +17,11 @@ const FLASH = 350;
 // События чаще этого — тонкие линии вместо вспышек.
 const FREQUENT = 120;
 
-// Импульс сейчас: докуда дошёл и как ярко горит провод (тон из
-// src/render/wires.js). Дошёл — провод горит светлым целиком, потом
-// темнеет ступенями палитры и гаснет, а если результат сохранён — остаётся
-// висеть синим: переменная держит вещь. quick — поиск внутри обработчика,
-// когда событие пришло вживую.
-export const pulseLook = ({ start, kept, quick }, now) => {
-  const t = (now - start) / (quick ? QUICK : 1);
-  if (t < PULSE.run) return { tone: `live`, upTo: t / PULSE.run, head: true };
-  if (t < PULSE.run + PULSE.hold) return { tone: `live` };
-
-  const fade = (t - PULSE.run - PULSE.hold) / PULSE.fade;
-  if (kept || fade < 0.5) return { tone: `wait` };
-  return { tone: fade < 1 ? `ghost` : null };
-};
+// Поиск в показе по шагам: пока он идёт, вещь в светлых уголках, а её
+// табличка горит. quick — поиск внутри обработчика, когда событие пришло
+// вживую.
+export const pulseActive = ({ start, quick }, now) =>
+  now >= start && now - start < (PULSE.run + PULSE.hold) * (quick ? QUICK : 1);
 
 const pulseOver = ({ start, quick }, now) =>
   now - start >= (PULSE.run + PULSE.hold + PULSE.fade) * (quick ? QUICK : 1);
@@ -40,18 +31,6 @@ const pulseOver = ({ start, quick }, now) =>
 export const impulseAt = ({ start }, now) => {
   const t = (now - start) / IMPULSE;
   return t < 0 || t >= 1 ? null : t;
-};
-
-// Провод в пустоту: поиск ничего не нашёл. Импульс добегает до конца,
-// а там ничего — провод повисает и качается. Он серо-синий: ток туда
-// не дошёл (красного в игре нет). sway — на сколько качнулся конец.
-export const looseLook = ({ start, run }, now) => {
-  const t = now - start;
-  if (t < run) return { upTo: t / run, head: true, live: true, sway: 0 };
-
-  const s = (t - run) / 1000;
-  const sway = 4 * Math.sin(s * 4.5) * Math.exp(-s / 2) + Math.sin(s * 2.1);
-  return { upTo: 1, head: false, live: false, sway };
 };
 
 // Свет проседает и возвращается: плотность тени растёт и спадает.
@@ -82,7 +61,6 @@ export const createReplay = ({
     bright: new Set(),
     pulses: [],
     kept: [],
-    loose: null,
     // Датчики, которые повесил код: id → { key, rect, type, once, value }.
     sensors: new Map(),
     impulses: [],
@@ -113,8 +91,9 @@ export const createReplay = ({
 
   const find = (event, begin) => {
     if (event.file !== show.file) return;
+    // Ничего не нашлось — нечему загораться: отметка в коде и разбор
+    // ошибки скажут, что не так.
     if (!event.count) {
-      view.loose = { start: begin, run: show.slow ? PULSE.run : 0 };
       if (show.slow) onPulse(null);
       return;
     }
@@ -133,8 +112,7 @@ export const createReplay = ({
 
     view.pulses.push({ ...wire, start: begin, lines: call?.lines ?? [] });
     onPulse(event.rects[0]);
-    const arrived = begin + PULSE.run;
-    onFlash(event.keys, arrived, arrived + PULSE.hold);
+    onFlash(event.keys, begin, begin + PULSE.run + PULSE.hold);
   };
 
   // Ошибка при выполнении: свет проседает, а у упавшей инструкции гаснут
@@ -267,7 +245,6 @@ export const createReplay = ({
       view.bright.clear();
       view.pulses = [];
       view.kept = [];
-      view.loose = null;
       view.sensors.clear();
       view.impulses = [];
       view.flashes.clear();
@@ -295,7 +272,6 @@ export const createReplay = ({
       show.dips = [];
       show.at = now;
       view.slow = false;
-      if (view.loose) view.loose.run = 0;
       view.pulses
         .filter(({ kept }) => kept)
         .forEach((pulse) => {

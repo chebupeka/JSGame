@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import { instrument } from "../src/code/instrument.js";
-import { createReplay, looseLook } from "../src/trace/replay.js";
+import { createReplay, pulseActive } from "../src/trace/replay.js";
 
 // Показ по шагам с подставным временем: что видно в какую миллисекунду.
 const FILE = `lamp.js`;
@@ -88,7 +88,7 @@ test(`первый показ медленный: свет проседает, �
 
   replay.update(800);
   assert.equal(replay.view.pulses.length, 1, `импульс побежал к лампе`);
-  assert.deepEqual(seen.flashes, [{ keys: [`lamp`], from: 1300, until: 1700 }]);
+  assert.deepEqual(seen.flashes, [{ keys: [`lamp`], from: 800, until: 1700 }]);
   assert.deepEqual(replay.view.bright, new Set([1]));
 
   replay.update(1699);
@@ -141,7 +141,7 @@ test(`клавиша пропускает показ: всё, что остал�
   );
 });
 
-test(`ничего не нашлось: провод в пустоту, ошибка, свет проседает`, () => {
+test(`ничего не нашлось: ошибка, строки ниже тёмные`, () => {
   const { replay, seen } = setup();
   const code = `document\n  .querySelector(\`#lamb\`)\n  .classList.add(\`on\`);\nconst x = 1;`;
   const { marked, events } = recording(code, { found: false });
@@ -149,7 +149,7 @@ test(`ничего не нашлось: провод в пустоту, ошиб
   replay.start({ slow: false, dip: false, marked, file: FILE }, 0);
   events.forEach((event) => replay.receive(event));
 
-  assert.ok(replay.view.loose, `провод в пустоту`);
+  assert.equal(replay.view.pulses.length, 0, `нечему загораться`);
   assert.equal(seen.errors.length, 1);
   assert.deepEqual([...replay.view.lines.keys()], [1, 2, 3], `строка 4 тёмная`);
 });
@@ -172,11 +172,11 @@ test(`ошибка в середине инструкции гасит её ст
   );
 });
 
-test(`провод в пустоту сначала живой, потом серо-синий и качается`, () => {
-  const loose = { start: 0, run: 500 };
-  assert.equal(looseLook(loose, 250).live, true);
-  assert.equal(looseLook(loose, 250).upTo, 0.5);
-  const later = [700, 900, 1100].map((t) => looseLook(loose, t));
-  assert.ok(later.every(({ live }) => !live));
-  assert.ok(new Set(later.map(({ sway }) => Math.round(sway))).size > 1);
+test(`найденная вещь горит, пока идёт поиск, и гаснет после`, () => {
+  const pulse = { start: 1000 };
+  assert.equal(pulseActive(pulse, 999), false);
+  assert.equal(pulseActive(pulse, 1000), true);
+  assert.equal(pulseActive(pulse, 1899), true);
+  assert.equal(pulseActive(pulse, 1900), false);
+  assert.equal(pulseActive({ start: 1000, quick: true }, 1400), false);
 });

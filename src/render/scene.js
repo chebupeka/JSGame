@@ -4,11 +4,11 @@ import { drawTerminalBody } from "../terminal/body.js";
 import { drawEdges } from "../terminal/edges.js";
 import { drawBreaker, drawLever, drawSlowToggle } from "../terminal/lever.js";
 import { sensorKind } from "../rooms/events.js";
-import { impulseAt, looseLook, pulseLook } from "../trace/replay.js";
-import { grey, white } from "./palette.js";
+import { pulseActive } from "../trace/replay.js";
+import { drawCorners } from "./corners.js";
+import { blueGlow, blueLight, grey, white } from "./palette.js";
 import { ditherFill, rect } from "./pixels.js";
-import { drawSensor, sensorPort, sensorRect, sensorSpot } from "./sensor.js";
-import { drawCorners, drawImpulse, drawWire } from "./wires.js";
+import { drawSensor, sensorRect, sensorSpot } from "./sensor.js";
 
 // Дневной свет снаружи: рулонный ставень не доходит до пола, и из-под него
 // пробивается тонкая полоска света, как под дверью. Рисуется поверх всего
@@ -17,61 +17,30 @@ const drawDaylight = (ctx, { x, y, w, h }) => {
   rect(ctx, white, x + 2, y + h - 1, w - 4, 1);
 };
 
-// Призрачные провода, пока печатаешь: к первой найденной вещи (или ко всем
-// для querySelectorAll), остальные совпадения — уголками.
-const bottom = ({ x, y, width, height }) => [x + width / 2, y + height];
-
-const drawWires = (ctx, wires, { socket }) => {
-  const from = [socket.x + 2, socket.y + 2];
-
-  wires.forEach(({ target, others, all, repeat }) => {
-    const targets = all.length ? all : [target];
-    targets
-      .filter(({ width }) => width > 0)
-      .forEach((rect) =>
-        drawWire(ctx, from, bottom(rect), { tone: `ghost`, dashed: repeat }),
-      );
-    others.forEach((rect) => drawCorners(ctx, rect));
-  });
+// Что нашёл код — без проводов через комнату (решение 9 в CLAUDE.md).
+// Пока печатаешь, о находке говорит горящая табличка вещи; тусклые
+// уголки — вещь тоже подходит, но querySelector берёт первую по разметке.
+// В показе по шагам светлые уголки — её нашли прямо сейчас. Рамка
+// из записи бывает 0×0 (песочница ещё без размера) — тогда берём рамку
+// вещи из снимка.
+const rectOf = (rect, key, world) => {
+  const found = rect?.width > 0 ? rect : world?.things[key]?.rect;
+  return found?.width > 0 ? found : null;
 };
 
-// Показ по шагам: импульс бежит по проводу к найденной вещи; провод,
-// который держит переменная, остаётся висеть синим. Рамка из записи бывает 0×0
-// (песочница ещё без размера) — тогда берём рамку вещи из снимка.
-// Куда уходит провод в пустоту — от гнезда вверх, в воздух перед ставнем.
-const LOOSE = [-24, -54];
-
-const drawRunWires = (
-  ctx,
-  { pulses, kept, loose },
-  { socket },
-  world,
-  time,
-) => {
-  const from = [socket.x + 2, socket.y + 2];
-  const ends = ({ rects, keys }) =>
-    rects
-      .map((rect, i) => (rect.width > 0 ? rect : world?.things[keys[i]]?.rect))
-      .filter((rect) => rect?.width > 0)
-      .map(bottom);
-
-  kept.forEach((wire) =>
-    ends(wire).forEach((to) => drawWire(ctx, from, to, { tone: `wait` })),
-  );
-  pulses.forEach((pulse) =>
-    ends(pulse).forEach((to) =>
-      drawWire(ctx, from, to, pulseLook(pulse, time)),
-    ),
+const drawFound = (ctx, { wires, trace, world }, time) => {
+  wires.forEach(({ others }) =>
+    others.forEach((rect) => drawCorners(ctx, rect, blueGlow)),
   );
 
-  if (loose) {
-    const { upTo, head, live, sway } = looseLook(loose, time);
-    const end = [
-      socket.x + LOOSE[0] + Math.round(sway),
-      socket.y + LOOSE[1] + Math.round(Math.abs(sway) * 0.3),
-    ];
-    drawWire(ctx, from, end, { tone: live ? `live` : `ghost`, upTo, head });
-  }
+  trace.pulses
+    .filter((pulse) => pulseActive(pulse, time))
+    .forEach(({ rects, keys }) =>
+      rects.forEach((rect, i) => {
+        const box = rectOf(rect, keys[i], world);
+        if (box) drawCorners(ctx, box, blueLight);
+      }),
+    );
 };
 
 // Датчики на вещах. Призрачные — пока печатаешь (тусклые), защёлкнутые —
@@ -79,14 +48,6 @@ const drawRunWires = (
 // светлые.
 
 const thingOf = (place, key) => place.things.find((thing) => thing.key === key);
-
-// Вещи, к которым после запуска висит настоящий кабель или провод:
-// призрачный двойник поверх него только путал бы.
-const liveKeys = ({ sensors, kept }) =>
-  new Set([
-    ...[...sensors.values()].map(({ key }) => key),
-    ...kept.flatMap(({ keys }) => keys),
-  ]);
 
 const drawSensors = (ctx, { ghosts, trace, place, world }, time) => {
   const live = new Set(
@@ -115,24 +76,6 @@ const drawSensors = (ctx, { ghosts, trace, place, world }, time) => {
   });
 };
 
-// Кабель от датчика к терминалу висит синим: это функция, которая ждёт.
-// На событие по нему бежит импульс — от датчика к терминалу.
-const drawSensorCables = (ctx, { trace, world }, { socket }, time) => {
-  const from = [socket.x + 2, socket.y + 2];
-  trace.sensors.forEach((sensor) => {
-    const rect = sensorRect(sensor, world);
-    if (!rect) return;
-    const port = sensorPort(sensorSpot(rect));
-    drawWire(ctx, from, port, { tone: `wait` });
-    trace.impulses
-      .filter(({ id }) => id === sensor.id)
-      .forEach((impulse) => {
-        const t = impulseAt(impulse, time);
-        if (t !== null) drawImpulse(ctx, from, port, 1 - t, impulse);
-      });
-  });
-};
-
 // world — последний снимок из песочницы: есть ли комната и вещи в ней.
 export const drawScene = (ctx, state, time) => {
   const { layout, overlays, world, girl, lever, sprites, wires, trace, place } =
@@ -147,13 +90,20 @@ export const drawScene = (ctx, state, time) => {
     roomPresent,
     wires,
     flash: state.flash,
+    // Вещи, которые держит переменная: их табличка горит и после показа.
+    held: new Set(trace.kept.flatMap(({ keys }) => keys)),
     time,
     solved: state.solved,
     glow: state.glow,
   });
-  if (roomPresent) drawSensors(ctx, state, time);
-  // Вещь под щупом обведена пунктиром.
-  if (roomPresent && probed?.present) drawCorners(ctx, probed.rect);
+  if (roomPresent) {
+    drawFound(ctx, state, time);
+    drawSensors(ctx, state, time);
+  }
+  // Вещь под щупом — тусклые уголки.
+  if (roomPresent && probed?.present) {
+    drawCorners(ctx, probed.rect, blueGlow);
+  }
   drawDaylight(ctx, place.layout.shutter);
   overlays.forEach((draw) => draw(ctx, layout));
   drawGirl(ctx, girl, time, sprites?.girl);
@@ -164,14 +114,6 @@ export const drawScene = (ctx, state, time) => {
   if (trace.lines.size || trace.flashes.size) {
     drawEdges(ctx, layout, trace, state.lineBoxes());
   }
-  const live = liveKeys(trace);
-  drawWires(
-    ctx,
-    wires.filter(({ key }) => !live.has(key)),
-    layout,
-  );
-  drawRunWires(ctx, trace, layout, world, time);
-  if (roomPresent) drawSensorCables(ctx, state, layout, time);
   drawLever(ctx, layout.lever, lever, time, sprites?.lever);
   drawBreaker(ctx, layout.breaker, state.breaker.tripped, sprites?.breaker);
   drawSlowToggle(ctx, layout.slow, trace.slow);
