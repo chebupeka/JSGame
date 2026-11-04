@@ -140,3 +140,35 @@ test(`не функция и не строка — решает сам брау�
   assert.throws(() => on(`input`, 5), TypeError);
   assert.deepEqual(log, []);
 });
+
+test(`одна функция на двух вещах — два разных датчика`, () => {
+  const log = [];
+  const listeners = createListeners({
+    add: EventTarget.prototype.addEventListener,
+    remove: EventTarget.prototype.removeEventListener,
+    on: {
+      add: (target, type, id) => log.push([`add`, id]),
+      remove: (target, type, id) => log.push([`remove`, id]),
+      fire: () => {},
+      done: () => {},
+    },
+  });
+  const press = () => {};
+  const [a, b, c] = [new EventTarget(), new EventTarget(), new EventTarget()];
+  listeners.add.call(a, `click`, press);
+  listeners.add.call(b, `click`, press);
+  listeners.remove.call(c, `click`, press);
+  assert.deepEqual(log, [
+    [`add`, 1],
+    [`add`, 2],
+  ]);
+});
+
+test(`уже отменённый signal — датчика нет, как и слушателя`, () => {
+  const { on, fire, log } = setup();
+  let calls = 0;
+  on(`input`, () => (calls += 1), { signal: AbortSignal.abort() });
+  fire(`input`);
+  assert.equal(calls, 0);
+  assert.deepEqual(log, []);
+});

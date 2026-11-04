@@ -83,6 +83,8 @@ const launch = ({
     removeEventListener(`message`, onReady);
     port?.close();
     iframe.remove();
+    // Застывший мир заменили новым — застывания больше нет.
+    setStalled(false);
   };
 
   const watchdog = setInterval(() => {
@@ -167,7 +169,7 @@ export const createSandbox = ({
         snapshot: ({ world }) => onSnapshot(world),
         trace: ({ event }) => onTrace(event),
         error: (error) => onError(error),
-        halt: () => onHalt(),
+        halt: ({ file }) => onHalt(file),
         done: () => onDone(),
       },
       onHang: worldHung,

@@ -95,20 +95,27 @@ export const snapshot = (things, bound, read) => {
 };
 
 // Сторож циклов: `__g()` стоит первой инструкцией в теле каждого цикла
-// (src/code/instrument.js). Циклы крутятся без передышки дольше limit мс —
-// бросаем HALT, и цикл прерывается. Пойманный HALT не спасает: пока нет
-// передышки, каждый следующий `__g()` бросает снова. Передышка дольше gap
-// мс — новый отсчёт: обработчик события запустит свой цикл позже.
+// (src/code/instrument.js). Отсчёт идёт, пока поток не освободился: первая
+// проверка заводит таймер на 0 мс (later), и раз он сработал — поток
+// отдохнул, и следующий цикл (на следующем событии, после await) считается
+// с нуля. Синхронный бесконечный цикл таймер не пустит — через limit мс
+// HALT. Пойманный HALT не спасает: пока поток не отдохнул, каждый
+// следующий `__g()` бросает снова. Если таймеры притормозил браузер
+// (вкладка в фоне), новый отсчёт даёт и пауза дольше gap мс.
 export const HALT = Object.freeze({ halt: `сторож прервал цикл` });
 
-export const createGuard = (clock, { limit = 800, gap = 50 } = {}) => {
-  let since = 0;
+export const createGuard = (clock, later, { limit = 800, gap = 50 } = {}) => {
+  let since = null;
   let last = -Infinity;
   let tripped = false;
+  const rest = () => {
+    since = null;
+  };
 
   return () => {
     const now = clock();
-    if (now - last > gap) {
+    if (since === null || now - last > gap) {
+      if (since === null) later(rest);
       since = now;
       tripped = false;
     }
@@ -122,26 +129,33 @@ export const createGuard = (clock, { limit = 800, gap = 50 } = {}) => {
 
 // Слушатели игрока — датчики (MECHANICS.md §3.2). Вместо функции игрока
 // браузер получает нашу обёртку: она сообщает о событии и зовёт функцию.
-// Браузер не добавляет одну функцию дважды на тот же тип и capture и
-// снимает её по тем же признакам, поэтому обёртка одна на тройку
-// (функция, тип, capture) — тогда дубли, remove, once и signal работают
-// как без нас. Ошибку обработчика бросаем дальше: браузер напишет её
-// сам, дословно. add и remove — настоящие методы, сохранённые заранее.
+// Браузер не добавляет одну функцию дважды на ту же вещь с тем же типом
+// и capture и снимает её по тем же признакам, поэтому обёртка одна на
+// четвёрку (вещь, функция, тип, capture) — тогда дубли, remove, once и
+// signal работают как без нас, а у каждой вещи свой датчик. Ошибку
+// обработчика бросаем дальше: браузер напишет её сам, дословно. add
+// и remove — настоящие методы, сохранённые заранее.
 const create = Object.create;
 
 export const createListeners = ({ add, remove, on }) => {
-  const wrappers = new NativeWeakMap();
+  const registry = new NativeWeakMap();
   let lastId = 0;
 
   const captureOf = (options) =>
     typeof options === `boolean` ? options : !!(options && options.capture);
 
-  const wrapperOf = (listener, type, capture, make) => {
-    let byKind = apply(mapGet, wrappers, [listener]);
+  const entryOf = (target, listener, type, capture, make) => {
+    let byListener = apply(mapGet, registry, [target]);
+    if (!byListener) {
+      if (!make) return null;
+      byListener = new NativeWeakMap();
+      apply(mapSet, registry, [target, byListener]);
+    }
+    let byKind = apply(mapGet, byListener, [listener]);
     if (!byKind) {
       if (!make) return null;
       byKind = create(null);
-      apply(mapSet, wrappers, [listener, byKind]);
+      apply(mapSet, byListener, [listener, byKind]);
     }
 
     const kind = (capture ? `1:` : `0:`) + type;
@@ -167,28 +181,29 @@ export const createListeners = ({ add, remove, on }) => {
     return byKind[kind] || null;
   };
 
-  // Не строка в типе или не функция — пусть решает сам браузер: его
-  // ошибка и его поведение, без нашей обёртки.
-  const traceable = (type, listener) =>
+  // Не вещь, не строка в типе или не функция — пусть решает сам браузер:
+  // его ошибка и его поведение, без нашей обёртки.
+  const traceable = (target, type, listener) =>
+    target !== null &&
+    (typeof target === `object` || typeof target === `function`) &&
     typeof type === `string` &&
     (typeof listener === `function` ||
       (typeof listener === `object` && listener !== null));
 
   return {
     add: function (type, listener, options) {
-      if (!traceable(type, listener)) return apply(add, this, arguments);
+      if (!traceable(this, type, listener)) return apply(add, this, arguments);
 
-      const { wrapper, id } = wrapperOf(
-        listener,
-        type,
-        captureOf(options),
-        true,
-      );
+      const capture = captureOf(options);
+      const { wrapper, id } = entryOf(this, listener, type, capture, true);
       const result = apply(add, this, [type, wrapper, options]);
       const once = !!(options && typeof options === `object` && options.once);
       const signal = options && typeof options === `object` && options.signal;
+      // Уже отменённый signal: браузер слушателя не добавил.
+      if (signal && signal.aborted) return result;
+
       on.add(this, type, id, once);
-      if (signal && !signal.aborted) {
+      if (signal) {
         const target = this;
         apply(add, signal, [
           `abort`,
@@ -200,9 +215,11 @@ export const createListeners = ({ add, remove, on }) => {
     },
 
     remove: function (type, listener, options) {
-      if (!traceable(type, listener)) return apply(remove, this, arguments);
+      if (!traceable(this, type, listener)) {
+        return apply(remove, this, arguments);
+      }
 
-      const found = wrapperOf(listener, type, captureOf(options), false);
+      const found = entryOf(this, listener, type, captureOf(options), false);
       if (!found) return apply(remove, this, arguments);
       const result = apply(remove, this, [type, found.wrapper, options]);
       on.remove(this, type, found.id);

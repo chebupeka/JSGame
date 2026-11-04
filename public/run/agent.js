@@ -79,9 +79,13 @@ const native = {
   setInputValue: setter(HTMLInputElement.prototype, `value`),
   dispatch: EventTarget.prototype.dispatchEvent,
   eventTarget: getter(Event.prototype, `target`),
+  errorOf: getter(ErrorEvent.prototype, `error`),
+  reasonOf: getter(PromiseRejectionEvent.prototype, `reason`),
   animations: Document.prototype.getAnimations,
 };
-const clock = () => apply(native.now, performance, []);
+// performance сохраняем тоже: игрок может перезаписать window.performance.
+const perf = performance;
+const clock = () => apply(native.now, perf, []);
 
 const read = {
   isConnected: (element) => apply(native.isConnected, element, []),
@@ -154,7 +158,9 @@ define(win, `__s`, {
 
 // Сторож цикла — тоже метка из instrument.js. Цикл без передышки дольше
 // 0,8 с прерывается, и игра узнаёт об этом сразу, а не по пропавшему пульсу.
-const guard = createGuard(clock);
+const guard = createGuard(clock, (rest) =>
+  apply(native.setTimeout, win, [rest, 0]),
+);
 define(win, `__g`, { value: () => guard() });
 
 const buildRoom = ({ html, css }) => {
@@ -233,8 +239,12 @@ const start = (port, { room, things, files, view: top = 0, trace }) => {
   // Показ по шагам: что делал код игрока и в каком порядке. Только
   // в мире — в превью кода игрока нет.
   let recorded = 0;
-  const record = (build) => {
-    if (!trace || recorded > LIMIT) return;
+  // always — запись о самих датчиках и ошибках: без неё пропал бы датчик
+  // или разбор ошибки, поэтому лимит её не режет.
+  const record = (build, always = false) => {
+    if (!trace) return;
+    if (always) return send({ type: `trace`, event: build() });
+    if (recorded > LIMIT) return;
     recorded += 1;
     send({
       type: `trace`,
@@ -271,6 +281,25 @@ const start = (port, { room, things, files, view: top = 0, trace }) => {
   // iframe в отдельном процессе получает свой размер от браузера не сразу:
   // до этого раскладки нет и все рамки 0×0. Пришёл размер — новый снимок.
   apply(native.listen, win, [`resize`, scheduleSnapshot]);
+
+  // Сторож прервал цикл в таймере, кадре анимации или промисе — оттуда
+  // HALT улетает к браузеру. Игре это сторож, а не ошибка кода.
+  apply(native.listen, win, [
+    `error`,
+    (event) => {
+      if (apply(native.errorOf, event, []) === HALT) {
+        send({ type: `halt`, file: null });
+      }
+    },
+  ]);
+  apply(native.listen, win, [
+    `unhandledrejection`,
+    (event) => {
+      if (apply(native.reasonOf, event, []) === HALT) {
+        send({ type: `halt`, file: null });
+      }
+    },
+  ]);
 
   // Пульс: пропал дольше секунды — игра считает песочницу зависшей.
   const pulse = () => {
@@ -380,20 +409,26 @@ const start = (port, { room, things, files, view: top = 0, trace }) => {
       on: {
         add: (target, type, id, once) => {
           const site = callSite(new NativeError().stack);
-          record(() => ({
-            kind: `listen`,
-            file: site ? fileOf(site.url) : null,
-            line: site ? site.line : null,
-            column: site ? site.column : null,
-            key: keyOf(target) ?? null,
-            rect: rectOf(target),
-            type,
-            id,
-            once,
-          }));
+          record(
+            () => ({
+              kind: `listen`,
+              file: site ? fileOf(site.url) : null,
+              line: site ? site.line : null,
+              column: site ? site.column : null,
+              key: keyOf(target) ?? null,
+              rect: rectOf(target),
+              type,
+              id,
+              once,
+            }),
+            true,
+          );
         },
         remove: (target, type, id) =>
-          record(() => ({ kind: `unlisten`, key: keyOf(target) ?? null, id })),
+          record(
+            () => ({ kind: `unlisten`, key: keyOf(target) ?? null, id }),
+            true,
+          ),
         fire: (target, type, id, event) => {
           recorded = 0;
           flush();
@@ -408,17 +443,22 @@ const start = (port, { room, things, files, view: top = 0, trace }) => {
         done: (target, type, id, error) => {
           flush();
           if (!error) return record(() => ({ kind: `handled`, id }));
+          // Цикл в обработчике прервал сторож — это не ошибка браузера.
+          if (error === HALT) return send({ type: `halt`, file: null });
 
           const { text, stack } = describeError(error);
           const site = callSite(stack);
-          record(() => ({
-            kind: `fault`,
-            id,
-            file: site ? fileOf(site.url) : null,
-            text,
-            line: site ? site.line : null,
-            column: site ? site.column : null,
-          }));
+          record(
+            () => ({
+              kind: `fault`,
+              id,
+              file: site ? fileOf(site.url) : null,
+              text,
+              line: site ? site.line : null,
+              column: site ? site.column : null,
+            }),
+            true,
+          );
         },
       },
     });

@@ -177,7 +177,11 @@ test(`код, который не разобрался, идёт без мето
 const guarded = (code) => {
   const context = vm.createContext({
     __s: () => {},
-    __g: createGuard(() => performance.now(), { limit: 150 }),
+    __g: createGuard(
+      () => performance.now(),
+      (rest) => setTimeout(rest, 0),
+      { limit: 150 },
+    ),
   });
   const started = performance.now();
   try {
@@ -193,20 +197,10 @@ for (const loop of [
   `for (;;) {}`,
   `for (;;);`,
   `do {} while (true);`,
-  `let x = 0;
-while (true) x++;`,
-  `while (true) {
-  try {
-    x();
-  } catch {}
-}`,
+  `let x = 0;\nwhile (true) x++;`,
+  `while (true) {\n  try {\n    x();\n  } catch {}\n}`,
 ]) {
-  test(`сторож прерывает: ${loop
-    .split(
-      `
-`,
-    )
-    .join(` `)}`, () => {
+  test(`сторож прерывает: ${loop.split(`\n`).join(` `)}`, () => {
     const { halted, took } = guarded(loop);
     assert.ok(halted, `цикл не прервался`);
     assert.ok(took < 1000, `прервался только через ${took} мс`);
@@ -219,10 +213,42 @@ test(`конечный цикл сторож не трогает`, () => {
   });
 });
 
+// Ручку крутят: событие каждые 16 мс, на каждом короткий цикл. Между
+// событиями поток отдыхает — отсчёт каждый раз с нуля, сторож молчит.
+test(`отдельные события не копятся в один отсчёт`, () => {
+  let now = 0;
+  const timers = [];
+  const guard = createGuard(
+    () => now,
+    (rest) => timers.push(rest),
+    { limit: 800 },
+  );
+  for (let event = 0; event < 200; event++) {
+    for (let i = 0; i < 3; i++) guard();
+    timers.splice(0).forEach((rest) => rest());
+    now += 16;
+  }
+  assert.equal(now, 3200);
+});
+
+test(`пойманный HALT не спасает, пока поток не отдохнул`, () => {
+  let now = 0;
+  const guard = createGuard(
+    () => now,
+    () => {},
+    { limit: 100 },
+  );
+  while (now <= 100) {
+    guard();
+    now += 10;
+  }
+  assert.throws(guard, (error) => error === HALT);
+  now += 10;
+  assert.throws(guard, (error) => error === HALT);
+});
+
 test(`скобки вокруг тела без скобок не меняют смысл`, () => {
-  const code = `let a = 0;
-if (a) while (a) a--; else a = 5;
-a;`;
+  const code = `let a = 0;\nif (a) while (a) a--; else a = 5;\na;`;
   const context = vm.createContext({ __s: () => {}, __g: () => {} });
   assert.equal(vm.runInContext(instrument(code).code, context), 5);
 });
