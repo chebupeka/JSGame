@@ -57,3 +57,14 @@ test(`имя события на ходу — датчика нет, честн�
   const code = `const type = \`input\`;\ndocument.addEventListener(type, () => {});`;
   assert.deepEqual(findListeners(code), []);
 });
+
+test(`датчик на вещи другой комнаты здесь не рисуется`, async () => {
+  const { sensorRect } = await import(`../src/render/sensor.js`);
+  const lamp = { key: `lamp`, rect: { x: 86, y: -145, width: 14, height: 20 } };
+  assert.equal(sensorRect(lamp, null), null);
+  const picker = {
+    key: `picker`,
+    rect: { x: 212, y: 50, width: 56, height: 24 },
+  };
+  assert.deepEqual(sensorRect(picker, null), picker.rect);
+});

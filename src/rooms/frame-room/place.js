@@ -48,7 +48,8 @@ const NAMES = {
 // Окно светит, только если рамка из песочницы уже настоящая. Яркость —
 // сглаженная ограничителем вспышек (src/render/glow.js).
 const drawWindow = (ctx, thing, level, lightFloor) => {
-  if (!thing?.present || thing.rect.width < 1) return;
+  const { width, height } = thing?.rect ?? {};
+  if (!thing?.present || width < 1 || height < 1) return;
   drawGlass(ctx, thing.rect, level ?? null);
   if (lightFloor) drawWindowLight(ctx, thing.rect, level ?? null, floor);
 };

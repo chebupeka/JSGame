@@ -12,7 +12,9 @@ export const drawPlates = (
     const flashing =
       flash?.keys.includes(key) && time >= flash.from && time < flash.until;
     const lit =
-      flashing || held?.has(key) || wires.some((wire) => wire.key === key);
+      flashing ||
+      held?.has(key) ||
+      wires.some((wire) => (wire.keys ?? [wire.key]).includes(key));
     drawPlate(ctx, plate, plateText(world?.things[key]), lit);
   });
 };

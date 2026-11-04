@@ -59,6 +59,8 @@ export const createLivePreview = ({
         to: item.to,
         repeat: item.repeat,
         key: result.keys[0],
+        // querySelectorAll находит все — горят таблички всех найденных.
+        keys: item.all ? result.keys : result.keys.slice(0, 1),
         target,
         others: item.all ? [] : others,
         all: item.all ? result.rects : [],

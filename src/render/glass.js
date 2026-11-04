@@ -1,3 +1,4 @@
+import { SCENE } from "../screen/scale.js";
 import { luminance } from "./ladder.js";
 import { blue, blueGlow, blueLight } from "./palette.js";
 import { dot, isLit } from "./pixels.js";
@@ -25,9 +26,18 @@ export const glassColor = (level, x, y) => {
   return isLit(x, y, level * 2 - 1) ? blueLight : blue;
 };
 
+// Код может растянуть окно хоть на 5000 пикселей — рисуем только ту
+// часть, что в кадре, иначе каждый кадр перебирал бы миллионы точек.
+const span = (from, size, limit) => [
+  Math.max(0, Math.round(from)),
+  Math.min(limit, Math.round(from + size)),
+];
+
 export const drawGlass = (ctx, { x, y, width, height }, level) => {
-  for (let py = Math.round(y); py < Math.round(y + height); py++) {
-    for (let px = Math.round(x); px < Math.round(x + width); px++) {
+  const [top, bottom] = span(y, height, SCENE.height);
+  const [left, right] = span(x, width, SCENE.width);
+  for (let py = top; py < bottom; py++) {
+    for (let px = left; px < right; px++) {
       const color = glassColor(level, px, py);
       if (color) dot(ctx, color, px, py);
     }
@@ -42,8 +52,11 @@ export const drawWindowLight = (ctx, glass, level, floor) => {
   const depth = floor.bottom - floor.top;
   for (let y = floor.top; y < floor.bottom; y++) {
     const t = (y - floor.top) / depth;
-    const left = Math.round(glass.x - 4 - t * 22);
-    const right = Math.round(glass.x + glass.width + 4 - t * 10);
+    const left = Math.max(0, Math.round(glass.x - 4 - t * 22));
+    const right = Math.min(
+      SCENE.width,
+      Math.round(glass.x + glass.width + 4 - t * 10),
+    );
     const strength = Math.max(1 / 16, level) * (1 - 0.6 * t);
 
     for (let x = left; x < right; x++) {

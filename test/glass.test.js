@@ -70,3 +70,11 @@ test(`ограничитель вспышек: тьма → свет не быс
   assert.ok(time >= 0.39, `разгорелось за ${time.toFixed(2)} с`);
   assert.equal(easeGlow(0.005, null, 1 / 60, GLOW_RATE.normal), null);
 });
+
+test(`огромное окно рисуется только в кадре`, async () => {
+  const { drawGlass } = await import(`../src/render/glass.js`);
+  let dots = 0;
+  const ctx = { fillRect: () => (dots += 1) };
+  drawGlass(ctx, { x: -2000, y: -2000, width: 5000, height: 5000 }, 1);
+  assert.ok(dots <= 320 * 180, `точек: ${dots}`);
+});

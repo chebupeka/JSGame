@@ -1,3 +1,4 @@
+import { SCENE } from "../screen/scale.js";
 import { blue, blueGlow, blueLight, grey } from "./palette.js";
 import { dot } from "./pixels.js";
 
@@ -25,10 +26,15 @@ const BODY = { ghost: blueGlow, wait: blue, fire: blueLight };
 export const SENSOR = { w: 8, h: 10 };
 
 // Рамка вещи под датчиком. Запись бывает 0×0 (песочница ещё без размера) —
-// тогда берём рамку вещи из последнего снимка. null — рисовать негде.
+// тогда берём рамку вещи из последнего снимка. null — рисовать негде: нет
+// рамки или вещь не в этой комнате (лампа щитовой из комнаты с окном).
 export const sensorRect = ({ rect, key }, world) => {
   const found = rect?.width > 0 ? rect : world?.things[key]?.rect;
-  return found?.width > 0 ? found : null;
+  if (!(found?.width > 0)) return null;
+  const { x, y, width, height } = found;
+  const outside =
+    x + width <= 0 || y + height <= 0 || x >= SCENE.width || y >= SCENE.height;
+  return outside ? null : found;
 };
 
 // Где датчик на вещи: зажат на её верхней кромке, ближе к правому краю.
