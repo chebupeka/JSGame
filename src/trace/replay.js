@@ -17,17 +17,19 @@ const FLASH = 350;
 // События чаще этого — тонкие линии вместо вспышек.
 const FREQUENT = 120;
 
-// Импульс сейчас: докуда дошёл и какой плотности провод. Дошёл — провод
-// горит целиком, потом гаснет, а если результат сохранён — остаётся
-// висеть на 50 %: переменная держит вещь. quick — поиск внутри
-// обработчика, когда событие пришло вживую.
+// Импульс сейчас: докуда дошёл и как ярко горит провод (тон из
+// src/render/wires.js). Дошёл — провод горит светлым целиком, потом
+// темнеет ступенями палитры и гаснет, а если результат сохранён — остаётся
+// висеть синим: переменная держит вещь. quick — поиск внутри обработчика,
+// когда событие пришло вживую.
 export const pulseLook = ({ start, kept, quick }, now) => {
   const t = (now - start) / (quick ? QUICK : 1);
-  if (t < PULSE.run) return { density: 1, upTo: t / PULSE.run, head: true };
-  if (t < PULSE.run + PULSE.hold) return { density: 1 };
+  if (t < PULSE.run) return { tone: `live`, upTo: t / PULSE.run, head: true };
+  if (t < PULSE.run + PULSE.hold) return { tone: `live` };
 
-  const fade = Math.min(1, (t - PULSE.run - PULSE.hold) / PULSE.fade);
-  return { density: kept ? 1 - fade / 2 : 1 - fade };
+  const fade = (t - PULSE.run - PULSE.hold) / PULSE.fade;
+  if (kept || fade < 0.5) return { tone: `wait` };
+  return { tone: fade < 1 ? `ghost` : null };
 };
 
 const pulseOver = ({ start, quick }, now) =>

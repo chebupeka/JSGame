@@ -1,4 +1,4 @@
-import { blue, blueGlow, blueLight } from "./palette.js";
+import { blue, blueGlow, blueLight, grey } from "./palette.js";
 import { dot } from "./pixels.js";
 
 // Точки провода от гнезда терминала к вещи. Провисает, как кабели
@@ -30,30 +30,34 @@ export const wirePoints = ([ax, ay], [bx, by]) => {
   return points;
 };
 
-// Ровный ритм вдоль провода: из каждых 1 / density точек горит одна.
-// Шаг одинаковый по всей длине, поэтому пунктир читается как пунктир.
-const evenly = (i, density) =>
-  density >= 1 || Math.floor((i + 1) * density) > Math.floor(i * density);
+// Провод — сплошной, как висящие кабели на референсе. Смысл — в яркости
+// синего: `ghost` — задумано, пока печатаешь (тусклый), `wait` — ждёт
+// (переменная держит вещь, датчик слушает), `live` — по нему идёт ток
+// (светлый). Под проводом тень в пиксель — он висит перед стеной.
+export const WIRE = { ghost: blueGlow, wait: blue, live: blueLight };
 
-// Провод. Плотность — смысл: 0.25 — задумано (пока печатаешь, редкий
-// пунктир), 0.5 — ждёт (точка через точку), 1 — ток (сплошной).
 // Прерывистый провод — поиск внутри функции: «буду искать каждый раз,
-// когда сработает» — короткими штрихами. upTo — докуда добежал импульс,
+// когда сработает» — длинными штрихами. upTo — докуда добежал импульс,
 // head — его светлая голова.
 export const drawWire = (
   ctx,
   from,
   to,
-  { density, dashed = false, upTo = 1, head = false, color = blue },
+  { tone, dashed = false, upTo = 1, head = false },
 ) => {
+  const color = WIRE[tone];
+  if (!color) return;
+
   const points = wirePoints(from, to);
   const end = Math.round(points.length * upTo);
+  const shown = points.slice(0, end).filter((_, i) => !dashed || i % 6 < 4);
 
-  points.slice(0, end).forEach(([x, y], i) => {
-    if (density <= 0) return;
-    const lit = dashed ? i % 5 < 2 : evenly(i, density);
-    if (lit) dot(ctx, color, x, y);
+  const taken = new Set(shown.map(([x, y]) => `${x},${y}`));
+  shown.forEach(([x, y]) => {
+    if (!taken.has(`${x},${y + 1}`)) dot(ctx, grey[0], x, y + 1);
   });
+  shown.forEach(([x, y]) => dot(ctx, color, x, y));
+
   if (head) {
     points
       .slice(Math.max(0, end - 3), end)
@@ -72,20 +76,26 @@ export const drawImpulse = (ctx, from, to, t, { thin = false } = {}) => {
     .forEach(([x, y]) => dot(ctx, blueLight, x, y));
 };
 
-// Пунктирная обводка вещи, которую селектор тоже находит, но
-// `querySelector` берёт только первую по разметке.
-export const drawDottedOutline = (ctx, { x, y, width, height }) => {
-  const left = Math.round(x) - 1;
-  const top = Math.round(y) - 1;
-  const right = Math.round(x + width);
-  const bottom = Math.round(y + height);
+// Уголки вокруг вещи: селектор находит и её, но `querySelector` берёт
+// только первую по разметке. Так же щуп показывает вещь под мышью.
+const CORNER = 3;
 
-  for (let px = left; px <= right; px += 2) {
-    dot(ctx, blueGlow, px, top);
-    dot(ctx, blueGlow, px, bottom);
-  }
-  for (let py = top; py <= bottom; py += 2) {
-    dot(ctx, blueGlow, left, py);
-    dot(ctx, blueGlow, right, py);
-  }
+export const drawCorners = (ctx, { x, y, width, height }) => {
+  const left = Math.round(x) - 2;
+  const top = Math.round(y) - 2;
+  const right = Math.round(x + width) + 1;
+  const bottom = Math.round(y + height) + 1;
+  const arm = Math.max(1, Math.min(CORNER, Math.floor((right - left) / 3)));
+
+  [
+    [left, top, 1, 1],
+    [right, top, -1, 1],
+    [left, bottom, 1, -1],
+    [right, bottom, -1, -1],
+  ].forEach(([cx, cy, dx, dy]) => {
+    for (let i = 0; i < arm; i++) {
+      dot(ctx, blueGlow, cx + dx * i, cy);
+      dot(ctx, blueGlow, cx, cy + dy * i);
+    }
+  });
 };

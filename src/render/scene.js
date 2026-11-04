@@ -5,12 +5,10 @@ import { drawEdges } from "../terminal/edges.js";
 import { drawBreaker, drawLever, drawSlowToggle } from "../terminal/lever.js";
 import { sensorKind } from "../rooms/events.js";
 import { impulseAt, looseLook, pulseLook } from "../trace/replay.js";
-import { blue, blueGlow, grey, white } from "./palette.js";
+import { grey, white } from "./palette.js";
 import { ditherFill, rect } from "./pixels.js";
 import { drawSensor, sensorPort, sensorRect, sensorSpot } from "./sensor.js";
-import { drawDottedOutline, drawImpulse, drawWire } from "./wires.js";
-
-const GHOST = 0.25;
+import { drawCorners, drawImpulse, drawWire } from "./wires.js";
 
 // Дневной свет снаружи: рулонный ставень не доходит до пола, и из-под него
 // пробивается тонкая полоска света, как под дверью. Рисуется поверх всего
@@ -20,7 +18,7 @@ const drawDaylight = (ctx, { x, y, w, h }) => {
 };
 
 // Призрачные провода, пока печатаешь: к первой найденной вещи (или ко всем
-// для querySelectorAll), остальные совпадения — пунктирной обводкой.
+// для querySelectorAll), остальные совпадения — уголками.
 const bottom = ({ x, y, width, height }) => [x + width / 2, y + height];
 
 const drawWires = (ctx, wires, { socket }) => {
@@ -31,14 +29,14 @@ const drawWires = (ctx, wires, { socket }) => {
     targets
       .filter(({ width }) => width > 0)
       .forEach((rect) =>
-        drawWire(ctx, from, bottom(rect), { density: GHOST, dashed: repeat }),
+        drawWire(ctx, from, bottom(rect), { tone: `ghost`, dashed: repeat }),
       );
-    others.forEach((rect) => drawDottedOutline(ctx, rect));
+    others.forEach((rect) => drawCorners(ctx, rect));
   });
 };
 
 // Показ по шагам: импульс бежит по проводу к найденной вещи; провод,
-// который держит переменная, висит на 50 %. Рамка из записи бывает 0×0
+// который держит переменная, остаётся висеть синим. Рамка из записи бывает 0×0
 // (песочница ещё без размера) — тогда берём рамку вещи из снимка.
 // Куда уходит провод в пустоту — от гнезда вверх, в воздух перед ставнем.
 const LOOSE = [-24, -54];
@@ -58,7 +56,7 @@ const drawRunWires = (
       .map(bottom);
 
   kept.forEach((wire) =>
-    ends(wire).forEach((to) => drawWire(ctx, from, to, { density: 0.5 })),
+    ends(wire).forEach((to) => drawWire(ctx, from, to, { tone: `wait` })),
   );
   pulses.forEach((pulse) =>
     ends(pulse).forEach((to) =>
@@ -72,17 +70,13 @@ const drawRunWires = (
       socket.x + LOOSE[0] + Math.round(sway),
       socket.y + LOOSE[1] + Math.round(Math.abs(sway) * 0.3),
     ];
-    drawWire(ctx, from, end, {
-      density: 1,
-      upTo,
-      head,
-      color: live ? blue : blueGlow,
-    });
+    drawWire(ctx, from, end, { tone: live ? `live` : `ghost`, upTo, head });
   }
 };
 
-// Датчики на вещах. Призрачные — пока печатаешь (25 %), защёлкнутые —
-// после запуска (50 %, лампа медленно мигает), сработавшие — на миг 100 %.
+// Датчики на вещах. Призрачные — пока печатаешь (тусклые), защёлкнутые —
+// после запуска (синие, лампа медленно мигает), сработавшие — на миг
+// светлые.
 
 const thingOf = (place, key) => place.things.find((thing) => thing.key === key);
 
@@ -121,7 +115,7 @@ const drawSensors = (ctx, { ghosts, trace, place, world }, time) => {
   });
 };
 
-// Кабель от датчика к терминалу висит на 50 %: это функция, которая ждёт.
+// Кабель от датчика к терминалу висит синим: это функция, которая ждёт.
 // На событие по нему бежит импульс — от датчика к терминалу.
 const drawSensorCables = (ctx, { trace, world }, { socket }, time) => {
   const from = [socket.x + 2, socket.y + 2];
@@ -129,7 +123,7 @@ const drawSensorCables = (ctx, { trace, world }, { socket }, time) => {
     const rect = sensorRect(sensor, world);
     if (!rect) return;
     const port = sensorPort(sensorSpot(rect));
-    drawWire(ctx, from, port, { density: 0.5 });
+    drawWire(ctx, from, port, { tone: `wait` });
     trace.impulses
       .filter(({ id }) => id === sensor.id)
       .forEach((impulse) => {
@@ -159,7 +153,7 @@ export const drawScene = (ctx, state, time) => {
   });
   if (roomPresent) drawSensors(ctx, state, time);
   // Вещь под щупом обведена пунктиром.
-  if (roomPresent && probed?.present) drawDottedOutline(ctx, probed.rect);
+  if (roomPresent && probed?.present) drawCorners(ctx, probed.rect);
   drawDaylight(ctx, place.layout.shutter);
   overlays.forEach((draw) => draw(ctx, layout));
   drawGirl(ctx, girl, time, sprites?.girl);

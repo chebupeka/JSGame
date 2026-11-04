@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { drawWire, wirePoints } from "../src/render/wires.js";
+import { grey } from "../src/render/palette.js";
+import { WIRE, drawWire, wirePoints } from "../src/render/wires.js";
 
 // Провод — ровная линия в один пиксель: без разрывов и без «уголков»,
 // которые делают его местами толще.
@@ -57,24 +58,43 @@ test(`провод в один пиксель: на изгибах нет уго
   }
 });
 
-// Что горит на холсте: подделка контекста записывает точки.
-const lit = (options) => {
-  const dots = [];
-  const ctx = { fillRect: (x, y) => dots.push(`${x},${y}`) };
+// Что легло на холст: подделка контекста записывает точки и их цвет.
+const paint = (options) => {
+  const dots = new Map();
+  const ctx = {
+    fillStyle: null,
+    fillRect(x, y) {
+      dots.set(`${x},${y}`, this.fillStyle);
+    },
+  };
   drawWire(ctx, [215, 112], [93, 71], options);
   return dots;
 };
 
-test(`пунктир ровный: 25 % — каждая четвёртая точка, 50 % — через одну`, () => {
-  const all = wirePoints([215, 112], [93, 71]).map(([x, y]) => `${x},${y}`);
-  const quarter = lit({ density: 0.25 });
-  const half = lit({ density: 0.5 });
+const line = wirePoints([215, 112], [93, 71]).map(([x, y]) => `${x},${y}`);
 
-  const gaps = (dots) => {
-    const at = dots.map((dot) => all.indexOf(dot));
-    return new Set(at.slice(1).map((value, i) => value - at[i]));
-  };
-  assert.deepEqual(gaps(quarter), new Set([4]));
-  assert.deepEqual(gaps(half), new Set([2]));
-  assert.equal(lit({ density: 1 }).length, all.length);
+test(`провод сплошной, цвет — смысл: задумано, ждёт, ток`, () => {
+  for (const tone of [`ghost`, `wait`, `live`]) {
+    const dots = paint({ tone });
+    assert.ok(
+      line.every((at) => dots.get(at) === WIRE[tone]),
+      `${tone}: все точки линии его цвета`,
+    );
+  }
+  assert.notEqual(WIRE.ghost, WIRE.wait);
+  assert.notEqual(WIRE.wait, WIRE.live);
+});
+
+test(`под проводом тень, поверх провода — никогда`, () => {
+  const dots = paint({ tone: `wait` });
+  const shadows = [...dots].filter(([at]) => !line.includes(at));
+  assert.ok(shadows.length > 0);
+  assert.ok(shadows.every(([, color]) => color === grey[0]));
+});
+
+test(`прерывистый провод — длинные штрихи, погасший — не рисуется`, () => {
+  const dashed = paint({ tone: `ghost`, dashed: true });
+  const onLine = line.filter((at) => dashed.get(at) === WIRE.ghost);
+  assert.ok(onLine.length > line.length / 2 && onLine.length < line.length);
+  assert.equal(paint({ tone: null }).size, 0);
 });
