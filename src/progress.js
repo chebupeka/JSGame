@@ -5,7 +5,7 @@
 // начинается сначала. Сброс для разработки: ?reset в адресе.
 const KEY = `jsgame.progress.v1`;
 
-const fresh = () => ({ solved: {}, drafts: {}, shown: {} });
+const fresh = () => ({ solved: {}, drafts: {}, shown: {}, waited: {} });
 
 export const loadProgress = () => {
   try {

@@ -138,6 +138,8 @@ export const findQueries = (code) => {
         repeat,
         from: argument.start,
         to: argument.end,
+        // Весь вызов: на него может вешаться датчик (findListeners).
+        call: { from: node.start, to: node.end },
       };
 
       const value = [`TemplateLiteral`, `Literal`].includes(argument.type)
@@ -172,4 +174,39 @@ export const findQueries = (code) => {
   });
 
   return queries.sort((a, b) => a.from - b.from);
+};
+
+// Датчики в коде: `….addEventListener(`тип`, …)` с закрытым именем
+// события. on — где в тексте то, на что датчик вешают: если это поиск
+// из findQueries, датчик встанет на найденную им вещь. Код не выполняется.
+export const findListeners = (code) => {
+  let ast;
+  try {
+    ast = parse(code, { ecmaVersion: `latest`, sourceType: `module` });
+  } catch {
+    return [];
+  }
+
+  const found = [];
+  ancestor(ast, {
+    CallExpression: (node, _, ancestors) => {
+      const { callee } = node;
+      if (callee.type !== `MemberExpression`) return;
+      if (propertyName(callee) !== `addEventListener`) return;
+
+      const [argument] = node.arguments;
+      if (![`TemplateLiteral`, `Literal`].includes(argument?.type)) return;
+      const value = literal(argument, code);
+      if (!value || value.dynamic) return;
+
+      found.push({
+        type: value.text,
+        repeat: insideFunction(ancestors.slice(0, -1)),
+        from: argument.start + 1,
+        to: argument.end - 1,
+        on: { from: callee.object.start, to: callee.object.end },
+      });
+    },
+  });
+  return found.sort((a, b) => a.from - b.from);
 };

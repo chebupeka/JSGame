@@ -14,6 +14,7 @@ import { loadProgress, saveProgress } from "./progress.js";
 import { glassLevel } from "./render/glass.js";
 import { GLOW_RATE, easeGlow } from "./render/glow.js";
 import { drawScene } from "./render/scene.js";
+import { SENSOR, sensorRect, sensorSpot } from "./render/sensor.js";
 import { loadSprites } from "./render/sprites.js";
 import { STENCIL_FONT, plateText } from "./render/stencil.js";
 import { createSandbox } from "./sandbox/host.js";
@@ -74,6 +75,8 @@ const state = {
   notes: null,
   hint: 0,
   wires: [],
+  // Призрачные датчики, пока печатаешь (превью).
+  ghosts: [],
 };
 
 const render = (time = performance.now()) => drawScene(ctx, state, time);
@@ -200,6 +203,20 @@ const replay = createReplay({
     saveProgress(progress);
   },
   onPulse: (rect) => sound.play(`pulse`, { pan: panOf(rect) }),
+  onSound: (id, rect) => sound.play(id, { pan: panOf(rect) }),
+  // Ошибка внутри обработчика выбивает только эту ветку: автомат цел,
+  // датчик слушает дальше. На полях — тот же разбор, что и всегда.
+  onFault: (fault) => showError(unmark(fault)),
+  // Запуск повесил датчик и ничего не сломал — а окно не изменилось.
+  // Так и задумано: об этом один раз за задачу.
+  onFinish: () => {
+    if (!replay.view.sensors.size || state.notes || !task.waiting) return;
+    if (progress.waited[task.file]) return;
+    progress.waited[task.file] = true;
+    saveProgress(progress);
+    state.notes = [task.waiting];
+    refreshNotes();
+  },
   onHalt: () => {
     state.notes = [HALT];
     refreshNotes();
@@ -345,6 +362,9 @@ const { view: editor, load: loadCode } = createEditor(
 live = createLivePreview({
   editor,
   query: sandbox.query,
+  onSensors: (ghosts) => {
+    state.ghosts = ghosts;
+  },
   onWires: (wires) => {
     // Новое совпадение — щелчок реле с той стороны, где вещь.
     const before = new Set(state.wires.map(({ key }) => key));
@@ -546,6 +566,14 @@ canvas.addEventListener(`pointerup`, (event) => {
 // Щуп: навёл мышь на вещь — на полях её настоящий HTML, вещь обведена.
 // На неё щуп не действует: её нет в DOM. Об этом — один раз.
 const HER = `Её не ищи. Она не вещь.`;
+
+const sensorAt = (point) =>
+  [...replay.view.sensors.values()].find((sensor) => {
+    const rect = sensorRect(sensor, state.world);
+    if (!rect) return false;
+    const { x, y } = sensorSpot(rect);
+    return isInside({ x, y, w: SENSOR.w, h: SENSOR.h }, point);
+  });
 let metHer = false;
 let showingHer = false;
 
@@ -557,6 +585,17 @@ canvas.addEventListener(`pointermove`, (event) => {
     isInside(state.layout.lever, point) || isInside(state.layout.slow, point);
   state.probe = found?.[0] ?? null;
   canvas.style.cursor = onSwitch || found ? `pointer` : ``;
+
+  // Щуп на датчике: что он слушает и что пришло с последним событием.
+  const sensor = sensorAt(point);
+  if (sensor) {
+    return hover([
+      `Датчик слушает событие ${sensor.type}.`,
+      ...(sensor.value === undefined
+        ? []
+        : [rawNote(`evt.target.value: ${JSON.stringify(sensor.value)}`)]),
+    ]);
+  }
 
   if (found) {
     return hover([
@@ -591,6 +630,7 @@ const enter = (next) => {
   state.solved = progress.solved[task.file] ?? null;
   state.world = null;
   state.wires = [];
+  state.ghosts = [];
   state.glow = {};
   state.hint = 0;
   state.notes = state.solved ? [] : null;

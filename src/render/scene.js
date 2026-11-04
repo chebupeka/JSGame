@@ -3,10 +3,12 @@ import { SCENE } from "../screen/scale.js";
 import { drawTerminalBody } from "../terminal/body.js";
 import { drawEdges } from "../terminal/edges.js";
 import { drawBreaker, drawLever, drawSlowToggle } from "../terminal/lever.js";
-import { looseLook, pulseLook } from "../trace/replay.js";
+import { sensorKind } from "../rooms/events.js";
+import { impulseAt, looseLook, pulseLook } from "../trace/replay.js";
 import { blue, blueGlow, grey, white } from "./palette.js";
 import { ditherFill, rect } from "./pixels.js";
-import { drawDottedOutline, drawWire } from "./wires.js";
+import { drawSensor, sensorPort, sensorRect, sensorSpot } from "./sensor.js";
+import { drawDottedOutline, drawImpulse, drawWire } from "./wires.js";
 
 const GHOST = 0.25;
 
@@ -79,6 +81,52 @@ const drawRunWires = (
   }
 };
 
+// Датчики на вещах. Призрачные — пока печатаешь (25 %), защёлкнутые —
+// после запуска (50 %, лампа медленно мигает), сработавшие — на миг 100 %.
+
+const thingOf = (place, key) => place.things.find((thing) => thing.key === key);
+
+const drawSensors = (ctx, { ghosts, trace, place, world }, time) => {
+  ghosts.forEach((ghost) => {
+    const rect = sensorRect(ghost, world);
+    if (!rect) return;
+    drawSensor(ctx, sensorSpot(rect), {
+      kind: sensorKind(ghost.type, thingOf(place, ghost.key)),
+      density: 0.25,
+      blink: true,
+    });
+  });
+
+  trace.sensors.forEach((sensor) => {
+    const rect = sensorRect(sensor, world);
+    if (!rect) return;
+    const firing = trace.impulses.some(({ id }) => id === sensor.id);
+    drawSensor(ctx, sensorSpot(rect), {
+      kind: sensorKind(sensor.type, thingOf(place, sensor.key)),
+      density: firing ? 1 : 0.5,
+      blink: firing || Math.floor(time / 800) % 2 === 0,
+    });
+  });
+};
+
+// Кабель от датчика к терминалу висит на 50 %: это функция, которая ждёт.
+// На событие по нему бежит импульс — от датчика к терминалу.
+const drawSensorCables = (ctx, { trace, world }, { socket }, time) => {
+  const from = [socket.x + 2, socket.y + 2];
+  trace.sensors.forEach((sensor) => {
+    const rect = sensorRect(sensor, world);
+    if (!rect) return;
+    const port = sensorPort(sensorSpot(rect));
+    drawWire(ctx, from, port, { density: 0.5 });
+    trace.impulses
+      .filter(({ id }) => id === sensor.id)
+      .forEach((impulse) => {
+        const t = impulseAt(impulse, time);
+        if (t !== null) drawImpulse(ctx, from, port, 1 - t, impulse);
+      });
+  });
+};
+
 // world — последний снимок из песочницы: есть ли комната и вещи в ней.
 export const drawScene = (ctx, state, time) => {
   const { layout, overlays, world, girl, lever, sprites, wires, trace, place } =
@@ -97,6 +145,7 @@ export const drawScene = (ctx, state, time) => {
     solved: state.solved,
     glow: state.glow,
   });
+  if (roomPresent) drawSensors(ctx, state, time);
   // Вещь под щупом обведена пунктиром.
   if (roomPresent && probed?.present) drawDottedOutline(ctx, probed.rect);
   drawDaylight(ctx, place.layout.shutter);
@@ -106,9 +155,12 @@ export const drawScene = (ctx, state, time) => {
   const dim = Math.max(trace.dip * (state.calm ? 0.4 : 1), state.dim ?? 0);
   ditherFill(ctx, grey[0], dim, 0, 0, SCENE.width, SCENE.height);
   drawTerminalBody(ctx, layout, sprites?.terminal);
-  if (trace.lines.size) drawEdges(ctx, layout, trace, state.lineBoxes());
+  if (trace.lines.size || trace.flashes.size) {
+    drawEdges(ctx, layout, trace, state.lineBoxes());
+  }
   drawWires(ctx, wires, layout);
   drawRunWires(ctx, trace, layout, world, time);
+  if (roomPresent) drawSensorCables(ctx, state, layout, time);
   drawLever(ctx, layout.lever, lever, time, sprites?.lever);
   drawBreaker(ctx, layout.breaker, state.breaker.tripped, sprites?.breaker);
   drawSlowToggle(ctx, layout.slow, trace.slow);

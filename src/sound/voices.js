@@ -226,6 +226,31 @@ export const VOICES = {
     if (audio.hum) glide(audio.hum.gain, 0, at + 0.02, 0.03);
   },
 
+  // Датчик защёлкнулся на вещи: короткий металлический клац.
+  clamp: (audio, { at, pan }) => {
+    const out = panned(audio, pan);
+    burst(audio, out, {
+      at,
+      length: 0.012,
+      type: `highpass`,
+      frequency: 2200,
+      gain: 0.14,
+    });
+    thump(audio, out, { at, from: 420, to: 180, length: 0.05, gain: 0.08 });
+  },
+
+  // Датчик сработал на событие: тихий сухой щелчок.
+  tick: (audio, { at, pan }) => {
+    burst(audio, panned(audio, pan), {
+      at,
+      length: 0.006,
+      type: `bandpass`,
+      frequency: 3200,
+      q: 2,
+      gain: 0.09,
+    });
+  },
+
   // Код занят: гул медленно ползёт вверх.
   strain: ({ hum }, { at }) => {
     if (hum) glide(hum.gain, 2.6, at, 0.6);

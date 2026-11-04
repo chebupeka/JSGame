@@ -1,12 +1,18 @@
 import { setMarks } from "../terminal/marks.js";
-import { findQueries } from "./preview.js";
+import { findListeners, findQueries } from "./preview.js";
 
 const PAUSE = 150;
 
 // Превью, пока игрок печатает: после паузы разбираем код (не выполняя его)
 // и спрашиваем у прогретой комнаты, что находят закрытые селекторы.
 // Нашлось — отметка и призрачный провод к первой вещи по разметке.
-export const createLivePreview = ({ editor, query, onWires }) => {
+// Датчик на найденной вещи — призрачный датчик (onSensors).
+export const createLivePreview = ({
+  editor,
+  query,
+  onWires,
+  onSensors = () => {},
+}) => {
   let timer = null;
   let version = 0;
   let wires = [];
@@ -18,7 +24,9 @@ export const createLivePreview = ({ editor, query, onWires }) => {
 
   const analyze = async () => {
     const mine = version;
-    const queries = findQueries(editor.state.doc.toString());
+    const code = editor.state.doc.toString();
+    const queries = findQueries(code);
+    const listeners = findListeners(code);
     const checks = queries.filter(({ status }) => status === `check`);
     const results = checks.length
       ? await query(checks.map(({ selector }) => selector))
@@ -59,6 +67,29 @@ export const createLivePreview = ({ editor, query, onWires }) => {
 
     editor.dispatch({ effects: setMarks.of(marks) });
     publish(next);
+
+    // Датчик встаёт туда, куда ведёт поиск, на котором он висит.
+    onSensors(
+      listeners.flatMap((listener) => {
+        const item = queries.find(
+          ({ status, call }) =>
+            status === `check` &&
+            call.from === listener.on.from &&
+            call.to === listener.on.to,
+        );
+        const result = item && results?.[checks.indexOf(item)];
+        if (!result?.count) return [];
+        return [
+          {
+            type: listener.type,
+            key: result.keys[0],
+            rect: result.rects[0],
+            from: listener.from,
+            to: listener.to,
+          },
+        ];
+      }),
+    );
   };
 
   const schedule = () => {

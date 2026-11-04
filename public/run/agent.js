@@ -3,6 +3,7 @@ import {
   bindThings,
   callSite,
   createGuard,
+  createListeners,
   locate,
   matchSelectors,
   snapshot,
@@ -77,6 +78,7 @@ const native = {
   inputValue: getter(HTMLInputElement.prototype, `value`),
   setInputValue: setter(HTMLInputElement.prototype, `value`),
   dispatch: EventTarget.prototype.dispatchEvent,
+  eventTarget: getter(Event.prototype, `target`),
   animations: Document.prototype.getAnimations,
 };
 const clock = () => apply(native.now, performance, []);
@@ -357,6 +359,82 @@ const start = (port, { room, things, files, view: top = 0, trace }) => {
       }
       record(() => ({ kind: `step`, n }));
     };
+
+    // Датчики: что повесили, что пришло, чем кончилось. У каждого события
+    // свой запас записи: она крутит ручку долго, а показ — про каждый раз.
+    const flush = () => {
+      if (!apply(native.takeRecords, observer, []).length) return;
+      changed();
+      scheduleSnapshot();
+    };
+    const rectOf = (target) => {
+      try {
+        return read.rect(target);
+      } catch {
+        return null;
+      }
+    };
+    const listeners = createListeners({
+      add: native.listen,
+      remove: native.unlisten,
+      on: {
+        add: (target, type, id, once) => {
+          const site = callSite(new NativeError().stack);
+          record(() => ({
+            kind: `listen`,
+            file: site ? fileOf(site.url) : null,
+            line: site ? site.line : null,
+            column: site ? site.column : null,
+            key: keyOf(target) ?? null,
+            rect: rectOf(target),
+            type,
+            id,
+            once,
+          }));
+        },
+        remove: (target, type, id) =>
+          record(() => ({ kind: `unlisten`, key: keyOf(target) ?? null, id })),
+        fire: (target, type, id, event) => {
+          recorded = 0;
+          flush();
+          record(() => ({
+            kind: `event`,
+            key: keyOf(target) ?? null,
+            type,
+            id,
+            value: read.value(apply(native.eventTarget, event, [])),
+          }));
+        },
+        done: (target, type, id, error) => {
+          flush();
+          if (!error) return record(() => ({ kind: `handled`, id }));
+
+          const { text, stack } = describeError(error);
+          const site = callSite(stack);
+          record(() => ({
+            kind: `fault`,
+            id,
+            file: site ? fileOf(site.url) : null,
+            text,
+            line: site ? site.line : null,
+            column: site ? site.column : null,
+          }));
+        },
+      },
+    });
+    const { prototype: target } = EventTarget;
+    define(target, `addEventListener`, {
+      value: listeners.add,
+      writable: true,
+      enumerable: true,
+      configurable: true,
+    });
+    define(target, `removeEventListener`, {
+      value: listeners.remove,
+      writable: true,
+      enumerable: true,
+      configurable: true,
+    });
   }
 
   const runFrom = (i) => {

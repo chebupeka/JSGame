@@ -8,13 +8,21 @@ const LEAD = 300;
 const STEP = 300;
 const CHANGE = 500;
 const MISS = 300;
+const LISTEN = 500;
 const PULSE = { run: 500, hold: 400, fade: 300 };
+// После запуска события идут вживую: всё быстрее, чем в медленном показе.
+const QUICK = 0.4;
+const IMPULSE = 300;
+const FLASH = 350;
+// События чаще этого — тонкие линии вместо вспышек.
+const FREQUENT = 120;
 
 // Импульс сейчас: докуда дошёл и какой плотности провод. Дошёл — провод
 // горит целиком, потом гаснет, а если результат сохранён — остаётся
-// висеть на 50 %: переменная держит вещь.
-export const pulseLook = ({ start, kept }, now) => {
-  const t = now - start;
+// висеть на 50 %: переменная держит вещь. quick — поиск внутри
+// обработчика, когда событие пришло вживую.
+export const pulseLook = ({ start, kept, quick }, now) => {
+  const t = (now - start) / (quick ? QUICK : 1);
   if (t < PULSE.run) return { density: 1, upTo: t / PULSE.run, head: true };
   if (t < PULSE.run + PULSE.hold) return { density: 1 };
 
@@ -22,8 +30,15 @@ export const pulseLook = ({ start, kept }, now) => {
   return { density: kept ? 1 - fade / 2 : 1 - fade };
 };
 
-const pulseOver = ({ start }, now) =>
-  now >= start + PULSE.run + PULSE.hold + PULSE.fade;
+const pulseOver = ({ start, quick }, now) =>
+  now - start >= (PULSE.run + PULSE.hold + PULSE.fade) * (quick ? QUICK : 1);
+
+// Импульс события: бежит от датчика по кабелю к терминалу. t — докуда
+// добежал (0 — у датчика), null — уже добежал.
+export const impulseAt = ({ start }, now) => {
+  const t = (now - start) / IMPULSE;
+  return t < 0 || t >= 1 ? null : t;
+};
 
 // Провод в пустоту: поиск ничего не нашёл. Импульс добегает до конца,
 // а там ничего — провод повисает и качается. Он серо-синий: ток туда
@@ -54,6 +69,9 @@ export const createReplay = ({
   onSlowShown,
   onPulse = () => {},
   onHalt = () => {},
+  onSound = () => {},
+  onFault = () => {},
+  onFinish = () => {},
 }) => {
   // Что рисуют терминал и сцена. Кромки и висящие провода остаются после
   // показа: кромки — до правки кода, провода — до следующего запуска.
@@ -63,15 +81,25 @@ export const createReplay = ({
     pulses: [],
     kept: [],
     loose: null,
+    // Датчики, которые повесил код: id → { key, rect, type, once, value }.
+    sensors: new Map(),
+    impulses: [],
+    // Строки обработчика, которые вспыхнули на событии: строка → до когда.
+    flashes: new Map(),
     dip: 0,
     slow: false,
   };
   let show = null;
 
   // Начатая инструкция: её строки горят, тела функций в ней ждут.
-  const light = (n) => {
+  // После запуска, на событии, строки обработчика только вспыхивают.
+  const light = (n, begin) => {
     const statement = show.marked?.statements[n];
     if (!statement) return;
+    if (show.finished) {
+      statement.lines.forEach((line) => view.flashes.set(line, begin + FLASH));
+      return;
+    }
 
     show.stepped = true;
     show.last = statement;
@@ -91,6 +119,11 @@ export const createReplay = ({
 
     const call = show.marked?.callAt(event.line, event.column);
     const wire = { rects: event.rects, keys: event.keys, kept: !!call?.kept };
+    // Поиск внутри обработчика, вживую: провод заново тянется к вещи.
+    if (show.finished) {
+      view.pulses.push({ ...wire, kept: false, start: begin, quick: true });
+      return;
+    }
     if (!show.slow) {
       if (wire.kept) view.kept.push(wire);
       return;
@@ -118,10 +151,34 @@ export const createReplay = ({
       .forEach((at) => view.lines.delete(at));
   };
 
+  // Датчик: защёлкнулся на вещи, сработал на событие, снят.
+  const sensorOf = ({ id }) => view.sensors.get(id);
+
+  const listen = (event, begin) => {
+    const { key, rect, type, id, once } = event;
+    view.sensors.set(id, { key, rect, type, id, once, start: begin });
+    onSound(`clamp`, rect);
+  };
+
+  const fire = (event, begin) => {
+    const sensor = sensorOf(event);
+    if (!sensor) return;
+    const thin = begin - (show.lastEvent ?? -Infinity) < FREQUENT;
+    show.lastEvent = begin;
+    sensor.value = event.value;
+    view.impulses.push({ id: sensor.id, start: begin, thin });
+    if (sensor.once) sensor.gone = begin + IMPULSE;
+    onSound(`tick`, sensor.rect);
+  };
+
   const play = (item, begin) => {
     if (item.kind === `world` || item.kind === `change`) onWorld(item.world);
-    if (item.kind === `step`) light(item.n);
+    if (item.kind === `step`) light(item.n, begin);
     if (item.kind === `find`) find(item, begin);
+    if (item.kind === `listen`) listen(item, begin);
+    if (item.kind === `unlisten`) view.sensors.delete(item.id);
+    if (item.kind === `event`) fire(item, begin);
+    if (item.kind === `fault`) onFault(item);
     if (item.kind === `error`) {
       fail(item.error, begin);
       onError(item.error);
@@ -136,6 +193,7 @@ export const createReplay = ({
     if (!show.stepped) return 0;
     if (item.kind === `step`) return STEP;
     if (item.kind === `change`) return CHANGE;
+    if (item.kind === `listen`) return LISTEN;
     if (item.kind !== `find` || item.file !== show.file) return 0;
     return item.count ? PULSE.run + PULSE.hold : PULSE.run + MISS;
   };
@@ -144,6 +202,7 @@ export const createReplay = ({
     view.slow = false;
     if (show.wasSlow && show.stepped) onSlowShown();
     show.finished = true;
+    onFinish();
   };
 
   const update = (now) => {
@@ -167,8 +226,17 @@ export const createReplay = ({
     view.bright = new Set(
       view.pulses
         .filter(({ start }) => now < start + PULSE.run + PULSE.hold)
-        .flatMap(({ lines }) => lines),
+        .flatMap(({ lines = [] }) => lines),
     );
+    view.impulses = view.impulses.filter(
+      (pulse) => impulseAt(pulse, now) !== null || pulse.start > now,
+    );
+    view.flashes.forEach((until, line) => {
+      if (now >= until) view.flashes.delete(line);
+    });
+    view.sensors.forEach((sensor, id) => {
+      if (sensor.gone && now >= sensor.gone) view.sensors.delete(id);
+    });
 
     const over = show?.done && !show.queue.length && now >= show.at;
     if (over && !show.finished) finish();
@@ -198,6 +266,9 @@ export const createReplay = ({
       view.pulses = [];
       view.kept = [];
       view.loose = null;
+      view.sensors.clear();
+      view.impulses = [];
+      view.flashes.clear();
       view.dip = 0;
       view.slow = slow;
     },
@@ -206,8 +277,12 @@ export const createReplay = ({
     // Без медленного показа оно играет сразу, не дожидаясь кадра.
     receive: (item) => {
       if (!show) return;
+      // Очередь была пуста — запись пришла сейчас, с этой минуты и играем
+      // (а не с последнего кадра: в фоне кадры редки).
+      const now = performance.now();
+      if (!show.queue.length) show.at = Math.max(show.at, now);
       show.queue.push(item);
-      if (!show.slow) update(performance.now());
+      if (!show.slow) update(now);
     },
 
     // Любая клавиша: всё, что осталось, — сразу.
@@ -242,6 +317,7 @@ export const createReplay = ({
     clearLines: () => {
       view.lines.clear();
       view.bright.clear();
+      view.flashes.clear();
     },
   };
 };

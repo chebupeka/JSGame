@@ -45,6 +45,17 @@ export const drawWire = (
   }
 };
 
+// Импульс события по кабелю датчика: короткий светлый отрезок, t от 0
+// (у начала провода) до 1. На частых событиях — тонкий, в одну точку.
+export const drawImpulse = (ctx, from, to, t, { thin = false } = {}) => {
+  const points = wirePoints(from, to);
+  const at = Math.round((points.length - 1) * t);
+  const length = thin ? 1 : 4;
+  points
+    .slice(Math.max(0, at - length + 1), at + 1)
+    .forEach(([x, y]) => dot(ctx, blueLight, x, y));
+};
+
 // Пунктирная обводка вещи, которую селектор тоже находит, но
 // `querySelector` берёт только первую по разметке.
 export const drawDottedOutline = (ctx, { x, y, width, height }) => {

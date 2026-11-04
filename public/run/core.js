@@ -4,6 +4,9 @@
 // Поэтому здесь нет for-of, spread и методов массивов.
 const apply = Reflect.apply;
 const exec = RegExp.prototype.exec;
+const NativeWeakMap = WeakMap;
+const mapGet = WeakMap.prototype.get;
+const mapSet = WeakMap.prototype.set;
 
 // Строка и столбец ошибки в файле игрока. В стеке V8 место выглядит как
 // `at blob:http://…/uuid:4:3` (или в скобках после имени функции),
@@ -114,5 +117,96 @@ export const createGuard = (clock, { limit = 800, gap = 50 } = {}) => {
       tripped = true;
       throw HALT;
     }
+  };
+};
+
+// Слушатели игрока — датчики (MECHANICS.md §3.2). Вместо функции игрока
+// браузер получает нашу обёртку: она сообщает о событии и зовёт функцию.
+// Браузер не добавляет одну функцию дважды на тот же тип и capture и
+// снимает её по тем же признакам, поэтому обёртка одна на тройку
+// (функция, тип, capture) — тогда дубли, remove, once и signal работают
+// как без нас. Ошибку обработчика бросаем дальше: браузер напишет её
+// сам, дословно. add и remove — настоящие методы, сохранённые заранее.
+const create = Object.create;
+
+export const createListeners = ({ add, remove, on }) => {
+  const wrappers = new NativeWeakMap();
+  let lastId = 0;
+
+  const captureOf = (options) =>
+    typeof options === `boolean` ? options : !!(options && options.capture);
+
+  const wrapperOf = (listener, type, capture, make) => {
+    let byKind = apply(mapGet, wrappers, [listener]);
+    if (!byKind) {
+      if (!make) return null;
+      byKind = create(null);
+      apply(mapSet, wrappers, [listener, byKind]);
+    }
+
+    const kind = (capture ? `1:` : `0:`) + type;
+    if (!byKind[kind] && make) {
+      lastId += 1;
+      const id = lastId;
+      const wrapper = function () {
+        on.fire(this, type, id, arguments[0]);
+        try {
+          const result =
+            typeof listener === `function`
+              ? apply(listener, this, arguments)
+              : apply(listener.handleEvent, listener, arguments);
+          on.done(this, type, id, null);
+          return result;
+        } catch (error) {
+          on.done(this, type, id, error);
+          throw error;
+        }
+      };
+      byKind[kind] = { wrapper, id };
+    }
+    return byKind[kind] || null;
+  };
+
+  // Не строка в типе или не функция — пусть решает сам браузер: его
+  // ошибка и его поведение, без нашей обёртки.
+  const traceable = (type, listener) =>
+    typeof type === `string` &&
+    (typeof listener === `function` ||
+      (typeof listener === `object` && listener !== null));
+
+  return {
+    add: function (type, listener, options) {
+      if (!traceable(type, listener)) return apply(add, this, arguments);
+
+      const { wrapper, id } = wrapperOf(
+        listener,
+        type,
+        captureOf(options),
+        true,
+      );
+      const result = apply(add, this, [type, wrapper, options]);
+      const once = !!(options && typeof options === `object` && options.once);
+      const signal = options && typeof options === `object` && options.signal;
+      on.add(this, type, id, once);
+      if (signal && !signal.aborted) {
+        const target = this;
+        apply(add, signal, [
+          `abort`,
+          () => on.remove(target, type, id),
+          { once: true },
+        ]);
+      }
+      return result;
+    },
+
+    remove: function (type, listener, options) {
+      if (!traceable(type, listener)) return apply(remove, this, arguments);
+
+      const found = wrapperOf(listener, type, captureOf(options), false);
+      if (!found) return apply(remove, this, arguments);
+      const result = apply(remove, this, [type, found.wrapper, options]);
+      on.remove(this, type, found.id);
+      return result;
+    },
   };
 };
