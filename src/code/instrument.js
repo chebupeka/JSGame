@@ -189,3 +189,25 @@ export const instrument = (code) => {
     callAt,
   };
 };
+
+// Решённые файлы станции идут без меток показа, но со сторожем циклов:
+// иначе бесконечный цикл в решённом файле вешал бы каждую следующую
+// комнату. Не разобралось — как есть: такой файл и так не выполнится.
+export const guardLoops = (code) => {
+  let ast;
+  try {
+    ast = parse(code, { ecmaVersion: `latest`, sourceType: `module` });
+  } catch {
+    return code;
+  }
+
+  let out = ``;
+  let cursor = 0;
+  guardsOf(ast)
+    .sort((a, b) => a.at - b.at)
+    .forEach(({ at, text }) => {
+      out += code.slice(cursor, at) + text;
+      cursor = at;
+    });
+  return out + code.slice(cursor);
+};

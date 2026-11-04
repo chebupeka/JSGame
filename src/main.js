@@ -6,7 +6,7 @@ import "./style.css";
 import { parse } from "acorn";
 
 import { explainError } from "./code/errors.js";
-import { instrument } from "./code/instrument.js";
+import { guardLoops, instrument } from "./code/instrument.js";
 import { createLivePreview } from "./code/live.js";
 import { findQueries } from "./code/preview.js";
 import { createGirl, girlBox, resetGirl, updateGirl } from "./girl/girl.js";
@@ -248,11 +248,20 @@ const unmark = (place) =>
     : place;
 
 // Файлы станции, которые работают и без запуска: решённые до этого места
-// и решённый файл самого места.
-const stationFiles = () => [
-  ...solvedBefore(place, progress.solved),
-  ...(state.solved ? [{ name: task.file, code: state.solved }] : []),
-];
+// и решённый файл самого места. Без меток показа, но со сторожем циклов.
+const guarded = (files) =>
+  files.map(({ name, code }) => ({ name, code: guardLoops(code) }));
+
+const stationFiles = () =>
+  guarded([
+    ...solvedBefore(place, progress.solved),
+    ...(state.solved ? [{ name: task.file, code: state.solved }] : []),
+  ]);
+
+// Ошибка или сторож в решённом файле прошлой комнаты — не про задачу
+// на экране: автомат её не выбивает, на полях о ней ни слова. Сторож
+// в обработчике файла не знает (null) — он про код, который на экране.
+const mine = ({ file }) => !file || file === task.file;
 
 const sandbox = createSandbox({
   worldContainer: document.querySelector(`#sandbox`),
@@ -263,15 +272,17 @@ const sandbox = createSandbox({
   view: () => viewOf(place),
   onSnapshot: (world) => replay.receive({ kind: `world`, world }),
   onTrace: (event) => replay.receive(event),
-  onError: (error) => replay.receive({ kind: `error`, error: unmark(error) }),
+  onError: (error) => {
+    if (mine(error)) replay.receive({ kind: `error`, error: unmark(error) });
+  },
   onDone: () => replay.receive({ kind: `done` }),
   onStall: (busy) => {
     state.stalled = busy ? performance.now() : null;
     if (busy) sound.play(`strain`);
   },
-  onHalt: () => {
+  onHalt: (file) => {
     watchdog();
-    replay.receive({ kind: `halt` });
+    if (mine({ file })) replay.receive({ kind: `halt` });
   },
   onHang: () => {
     watchdog();
@@ -310,7 +321,7 @@ const run = ({ slow = false } = {}) => {
   const first = !progress.shown[task.file];
   replay.start({ slow: slow || first, dip: first, marked, file: task.file });
   sandbox.run([
-    ...solvedBefore(place, progress.solved),
+    ...guarded(solvedBefore(place, progress.solved)),
     { name: task.file, code: marked.code },
   ]);
   sound.play(`lever`);

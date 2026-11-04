@@ -262,3 +262,13 @@ test(`столбцы правее сторожа возвращаются на �
   );
   assert.equal(marked.map(traced.line, traced.column), plain.column);
 });
+
+test(`решённый файл станции: сторож в циклах, без меток показа`, async () => {
+  const { guardLoops } = await import(`../src/code/instrument.js`);
+  const code = `document.querySelector(\`#lamp\`).classList.add(\`on\`);\nwhile (true) {}`;
+  const guardedCode = guardLoops(code);
+  assert.ok(!guardedCode.includes(`__s(`));
+  assert.ok(guardedCode.includes(`__g();`));
+  assert.equal(guardedCode.split(`\n`).length, 2);
+  assert.equal(guardLoops(`while (`), `while (`);
+});

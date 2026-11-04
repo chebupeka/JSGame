@@ -76,7 +76,10 @@ export const createReplay = ({
   const light = (n, begin) => {
     const statement = show.marked?.statements[n];
     if (!statement) return;
+    // Код правили после запуска: строки сдвинулись, а обработчик в мире
+    // ещё старый — вспышки легли бы не на те строки.
     if (show.finished) {
+      if (show.edited) return;
       statement.lines.forEach((line) => view.flashes.set(line, begin + FLASH));
       return;
     }
@@ -100,7 +103,7 @@ export const createReplay = ({
 
     const call = show.marked?.callAt(event.line, event.column);
     const wire = { rects: event.rects, keys: event.keys, kept: !!call?.kept };
-    // Поиск внутри обработчика, вживую: провод заново тянется к вещи.
+    // Поиск внутри обработчика, вживую: вещь на миг в светлых уголках.
     if (show.finished) {
       view.pulses.push({ ...wire, kept: false, start: begin, quick: true });
       return;
@@ -121,8 +124,10 @@ export const createReplay = ({
     if (!line || file !== show.file) return;
 
     show.dips.push(begin);
+    // Ошибка выше начатой инструкции (в функции, объявленной раньше) —
+    // строки самой инструкции не трогаем: она дошла, куда дошла.
     const statement = show.last;
-    if (!statement) return;
+    if (!statement || line < statement.line) return;
     statement.waits
       .filter((at) => view.lines.get(at) === `waiting`)
       .forEach((at) => view.lines.delete(at));
@@ -179,6 +184,8 @@ export const createReplay = ({
   };
 
   const finish = () => {
+    // Дальше события идут вживую, без медленного шага.
+    show.slow = false;
     view.slow = false;
     if (show.wasSlow && show.stepped) onSlowShown();
     show.finished = true;
@@ -296,6 +303,7 @@ export const createReplay = ({
       view.lines.clear();
       view.bright.clear();
       view.flashes.clear();
+      if (show) show.edited = true;
     },
   };
 };
