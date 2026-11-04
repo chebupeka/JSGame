@@ -1,5 +1,9 @@
+import frameRoomUrl from "../../assets/sprites/bg-frame-room.png";
 import backgroundUrl from "../../assets/sprites/bg-switchroom.png";
 import breakerUrl from "../../assets/sprites/breaker.png";
+import frameBigUrl from "../../assets/sprites/frame-big.png";
+import frameSmallUrl from "../../assets/sprites/frame-small.png";
+import knobUrl from "../../assets/sprites/knob.png";
 import lampUrl from "../../assets/sprites/lamp.png";
 import leverUrl from "../../assets/sprites/lever.png";
 import terminalUrl from "../../assets/sprites/terminal.png";
@@ -79,16 +83,26 @@ const loadGirl = async () => {
   };
 };
 
+// Комната с фальш-окном: фон, рамы окон и плата ручки.
+const loadFrameRoom = async () => {
+  const [background, frameBig, frameSmall, knob] = await Promise.all(
+    [frameRoomUrl, frameBigUrl, frameSmallUrl, knobUrl].map(load),
+  );
+  return { background, frameBig, frameSmall, knob };
+};
+
 export const loadSprites = async () => {
-  const [background, lamp, terminal, lever, breaker, girl] = await Promise.all([
-    load(backgroundUrl),
-    load(lampUrl),
-    load(terminalUrl),
-    load(leverUrl),
-    load(breakerUrl),
-    loadGirl(),
-  ]);
-  return { background, lamp, terminal, lever, breaker, girl };
+  const [background, lamp, terminal, lever, breaker, girl, frameRoom] =
+    await Promise.all([
+      load(backgroundUrl),
+      load(lampUrl),
+      load(terminalUrl),
+      load(leverUrl),
+      load(breakerUrl),
+      loadGirl(),
+      loadFrameRoom(),
+    ]);
+  return { background, lamp, terminal, lever, breaker, girl, frameRoom };
 };
 
 export const drawSprite = (ctx, image, x, y) =>

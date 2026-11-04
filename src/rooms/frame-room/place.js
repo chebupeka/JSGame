@@ -9,26 +9,27 @@ import { drawKnob, knobAt, knobTurn } from "./knob.js";
 
 // Место 2 — комната с фальш-окном, утро (глава 2). Окно на дальней стене
 // светит только тем, что сделал код; ручка — настоящий <input type="color">.
-const { frameBig, frameSmall, knob, knobCenter, shutter, doorOut, floor } =
-  FRAME_ROOM;
+const { knobCenter, shutter, doorOut, floor, plates } = FRAME_ROOM;
 
+// plate — ровная площадка, где выбита табличка: на плате ручки, на
+// подоконнике большой рамы и на стене над окошком у двери.
 const THINGS = [
   {
     key: `picker`,
     selector: `#frame-picker`,
-    plate: { x: knob.x + 2, y: knob.y + knob.h - 8, w: knob.w - 4, h: 7 },
+    plate: plates.picker,
     // Какие события шлёт ручка. В браузере у элемента это не спросить.
     events: [`input`, `change`, `click`],
   },
   {
     key: `frame`,
     selector: `.frame-room > .frame:first-child`,
-    plate: { x: frameBig.x + 16, y: frameBig.y + frameBig.h + 1, w: 24, h: 7 },
+    plate: plates.frame,
   },
   {
     key: `frameSmall`,
     selector: `.frame-room > .door + .frame`,
-    plate: { x: frameSmall.x - 1, y: frameSmall.y - 11, w: 24, h: 7 },
+    plate: plates.frameSmall,
   },
 ];
 
@@ -74,8 +75,8 @@ export const FRAME_PLACE = {
   ready: () => false,
 
   draw: (ctx, view) => {
-    const { world, roomPresent, solved, glow } = view;
-    drawFrameRoom(ctx, { roomPresent });
+    const { world, sprites, roomPresent, solved, glow } = view;
+    drawFrameRoom(ctx, { roomPresent, sprites: sprites?.frameRoom });
     if (!roomPresent) return;
 
     drawWindow(ctx, world?.things.frame, glow.frame, true);

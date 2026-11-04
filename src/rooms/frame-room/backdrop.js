@@ -1,59 +1,50 @@
+import layout from "../../../assets/sprites/bg-frame-room.json" with { type: "json" };
+import big from "../../../assets/sprites/frame-big.json" with { type: "json" };
+import small from "../../../assets/sprites/frame-small.json" with { type: "json" };
 import { grey } from "../../render/palette.js";
 import { rect } from "../../render/pixels.js";
 
-// Комната с фальш-окном (глава 2). Места на картинке; room.css ставит
-// вещи туда же — это проверяет test/room.test.js. frameBig и frameSmall —
-// стёкла окон, knob — плата ручки, knobCenter — ось ручки.
+// Комната с фальш-окном (глава 2): фон от Codex (assets/sprites/
+// bg-frame-room.png), рамы окон и плата ручки — спрайты, нарисованные
+// по пикселю (tools/draw_frame_room.py). Места измерены по картинке
+// (bg-frame-room.json); room.css ставит вещи туда же — это проверяет
+// test/room.test.js. frameBig и frameSmall — стёкла окон (сами вещи
+// .frame), knob — плата ручки (#frame-picker), knobCenter — ось ручки.
 export const FRAME_ROOM = {
-  shutter: { x: 14, y: 18, w: 66, h: 60 },
-  doorIn: { x: 96, y: 39, w: 20, h: 42 },
-  frameBig: { x: 136, y: 22, w: 56, h: 30 },
-  doorOut: { x: 226, y: 39, w: 20, h: 42 },
-  frameSmall: { x: 225, y: 26, w: 22, h: 8 },
-  knob: { x: 260, y: 58, w: 56, h: 24 },
-  knobCenter: { x: 272, y: 68, r: 7 },
-  monitor: { x: 196, y: 50, w: 22, h: 18 },
-  screen: { x: 198, y: 52, w: 18, h: 12 },
-  floor: { top: 81, bottom: 106 },
+  shutter: layout.shutter,
+  doorIn: layout.doorIn,
+  doorOut: layout.doorOut,
+  frameBig: layout.frameBigGlass,
+  frameSmall: layout.frameSmallGlass,
+  knob: layout.knob,
+  knobCenter: layout.knobCenter,
+  monitor: layout.monitor,
+  screen: layout.screen,
+  floor: { top: layout.floorY, bottom: 106 },
+  plates: {
+    frame: layout.frameBigPlate,
+    frameSmall: layout.frameSmallPlate,
+    picker: layout.knobPlate,
+  },
 };
 
-const { shutter, doorIn, frameBig, doorOut, frameSmall, knob, monitor } =
-  FRAME_ROOM;
+// Рамы стоят так, чтобы их прозрачное стекло легло ровно на вещь .frame.
+const SPRITES = [
+  { key: `frameBig`, glass: FRAME_ROOM.frameBig, inner: big.glass },
+  { key: `frameSmall`, glass: FRAME_ROOM.frameSmall, inner: small.glass },
+  { key: `knob`, glass: FRAME_ROOM.knob, inner: { x: 0, y: 0 } },
+];
 
-// Рама вокруг стекла: тёмная масса, светлые сколы сверху и слева.
-const drawFrameBody = (ctx, glass, bar) => {
-  rect(ctx, grey[2], glass.x - 3, glass.y - 3, glass.w + 6, glass.h + 3 + bar);
-  rect(ctx, grey[3], glass.x - 3, glass.y - 3, glass.w + 6, 1);
-  rect(ctx, grey[3], glass.x - 3, glass.y - 3, 1, glass.h + 3 + bar);
-  rect(ctx, grey[0], glass.x, glass.y, glass.w, glass.h);
-};
-
-// Пока нет картинки от Codex, комнату рисует код: стены, пол, ставень,
-// проёмы, рамы окон и плата ручки — ровными серыми массами.
-export const drawFrameRoom = (ctx, { roomPresent }) => {
-  rect(ctx, grey[0], 0, 0, 320, 180);
-  if (!roomPresent) return;
-
-  rect(ctx, grey[1], 0, 0, 320, 81);
-  rect(ctx, grey[2], 0, 81, 320, 1);
-  for (let y = shutter.y; y < shutter.y + shutter.h - 1; y += 3) {
-    rect(ctx, grey[2], shutter.x, y, shutter.w, 2);
+// Стёрли комнату (`document.body.innerHTML = ``;`) — она честно гаснет.
+export const drawFrameRoom = (ctx, { roomPresent, sprites }) => {
+  if (!roomPresent || !sprites?.background) {
+    rect(ctx, grey[0], 0, 0, 320, 180);
+    return;
   }
-  [doorIn, doorOut].forEach(({ x, y, w, h }) => {
-    rect(ctx, grey[2], x - 2, y - 2, w + 4, h + 2);
-    rect(ctx, grey[0], x, y, w, h);
+
+  ctx.drawImage(sprites.background, 0, 0);
+  SPRITES.forEach(({ key, glass, inner }) => {
+    const image = sprites[key];
+    if (image) ctx.drawImage(image, glass.x - inner.x, glass.y - inner.y);
   });
-  drawFrameBody(ctx, frameBig, 8);
-  drawFrameBody(ctx, frameSmall, 2);
-  rect(ctx, grey[3], knob.x, knob.y, knob.w, knob.h);
-  rect(ctx, grey[2], knob.x + 1, knob.y + 1, knob.w - 2, knob.h - 2);
-  rect(ctx, grey[3], monitor.x, monitor.y, monitor.w, monitor.h);
-  rect(
-    ctx,
-    grey[0],
-    monitor.x + 2,
-    monitor.y + 2,
-    monitor.w - 4,
-    monitor.h - 6,
-  );
 };
