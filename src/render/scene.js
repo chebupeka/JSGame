@@ -86,13 +86,25 @@ const drawRunWires = (
 
 const thingOf = (place, key) => place.things.find((thing) => thing.key === key);
 
+// Вещи, к которым после запуска висит настоящий кабель или провод:
+// призрачный двойник поверх него только путал бы.
+const liveKeys = ({ sensors, kept }) =>
+  new Set([
+    ...[...sensors.values()].map(({ key }) => key),
+    ...kept.flatMap(({ keys }) => keys),
+  ]);
+
 const drawSensors = (ctx, { ghosts, trace, place, world }, time) => {
+  const live = new Set(
+    [...trace.sensors.values()].map(({ key, type }) => `${key} ${type}`),
+  );
   ghosts.forEach((ghost) => {
+    if (live.has(`${ghost.key} ${ghost.type}`)) return;
     const rect = sensorRect(ghost, world);
     if (!rect) return;
     drawSensor(ctx, sensorSpot(rect), {
       kind: sensorKind(ghost.type, thingOf(place, ghost.key)),
-      density: 0.25,
+      state: `ghost`,
       blink: true,
     });
   });
@@ -103,7 +115,7 @@ const drawSensors = (ctx, { ghosts, trace, place, world }, time) => {
     const firing = trace.impulses.some(({ id }) => id === sensor.id);
     drawSensor(ctx, sensorSpot(rect), {
       kind: sensorKind(sensor.type, thingOf(place, sensor.key)),
-      density: firing ? 1 : 0.5,
+      state: firing ? `fire` : `wait`,
       blink: firing || Math.floor(time / 800) % 2 === 0,
     });
   });
@@ -158,7 +170,12 @@ export const drawScene = (ctx, state, time) => {
   if (trace.lines.size || trace.flashes.size) {
     drawEdges(ctx, layout, trace, state.lineBoxes());
   }
-  drawWires(ctx, wires, layout);
+  const live = liveKeys(trace);
+  drawWires(
+    ctx,
+    wires.filter(({ key }) => !live.has(key)),
+    layout,
+  );
   drawRunWires(ctx, trace, layout, world, time);
   if (roomPresent) drawSensorCables(ctx, state, layout, time);
   drawLever(ctx, layout.lever, lever, time, sprites?.lever);

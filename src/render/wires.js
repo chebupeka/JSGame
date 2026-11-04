@@ -1,29 +1,44 @@
 import { blue, blueGlow, blueLight } from "./palette.js";
-import { dot, isLit } from "./pixels.js";
+import { dot } from "./pixels.js";
 
 // Точки провода от гнезда терминала к вещи. Провисает, как кабели
-// на референсе.
-const wirePoints = ([ax, ay], [bx, by]) => {
+// на референсе. Линия ровно в один пиксель: на изгибе «уголок» из трёх
+// точек превращается в диагональ, иначе провод местами толще и кажется
+// кривым.
+export const wirePoints = ([ax, ay], [bx, by]) => {
   const sag = 8 + Math.abs(bx - ax) * 0.12;
-  const steps = Math.ceil(Math.hypot(bx - ax, by - ay) * 2) + 1;
+  const steps = Math.ceil(Math.hypot(bx - ax, by - ay + sag) * 3) + 1;
   const points = [];
-  let previous = null;
 
   for (let step = 0; step <= steps; step++) {
     const t = step / steps;
     const x = Math.round(ax + (bx - ax) * t);
     const y = Math.round(ay + (by - ay) * t + sag * 4 * t * (1 - t));
-    if (previous === `${x},${y}`) continue;
+    const last = points.at(-1);
+    if (last && last[0] === x && last[1] === y) continue;
 
-    previous = `${x},${y}`;
+    const before = points.at(-2);
+    const corner =
+      before &&
+      (before[0] === last[0] || before[1] === last[1]) &&
+      (last[0] === x || last[1] === y) &&
+      before[0] !== x &&
+      before[1] !== y;
+    if (corner) points.pop();
     points.push([x, y]);
   }
   return points;
 };
 
-// Провод. Плотность — растр Байера: 0.25 — задумано (пока печатаешь),
-// 0.5 — ждёт, 1 — ток. Прерывистый провод — поиск внутри функции: «буду
-// искать каждый раз, когда сработает». upTo — докуда добежал импульс,
+// Ровный ритм вдоль провода: из каждых 1 / density точек горит одна.
+// Шаг одинаковый по всей длине, поэтому пунктир читается как пунктир.
+const evenly = (i, density) =>
+  density >= 1 || Math.floor((i + 1) * density) > Math.floor(i * density);
+
+// Провод. Плотность — смысл: 0.25 — задумано (пока печатаешь, редкий
+// пунктир), 0.5 — ждёт (точка через точку), 1 — ток (сплошной).
+// Прерывистый провод — поиск внутри функции: «буду искать каждый раз,
+// когда сработает» — короткими штрихами. upTo — докуда добежал импульс,
 // head — его светлая голова.
 export const drawWire = (
   ctx,
@@ -35,8 +50,9 @@ export const drawWire = (
   const end = Math.round(points.length * upTo);
 
   points.slice(0, end).forEach(([x, y], i) => {
-    if (dashed && Math.floor((i + 1) / 3) % 2) return;
-    if (isLit(x, y, density)) dot(ctx, color, x, y);
+    if (density <= 0) return;
+    const lit = dashed ? i % 5 < 2 : evenly(i, density);
+    if (lit) dot(ctx, color, x, y);
   });
   if (head) {
     points
