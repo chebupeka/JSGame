@@ -54,6 +54,7 @@ const native = {
   body: getter(Document.prototype, `body`),
   root: getter(Document.prototype, `documentElement`),
   appendChild: Node.prototype.appendChild,
+  getText: getter(Node.prototype, `textContent`),
   setText: setter(Node.prototype, `textContent`),
   setHtml: setter(Element.prototype, `innerHTML`),
   className: getter(Element.prototype, `className`),
@@ -103,6 +104,9 @@ const read = {
     apply(native.propertyValue, apply(native.computedStyle, win, [element]), [
       `background-color`,
     ]),
+  // Текст вещи для снимка: столько, сколько может быть видно на табло.
+  text: (element) =>
+    apply(native.slice, apply(native.getText, element, []) ?? ``, [0, 200]),
   // Не поле ввода — значения нет: настоящий геттер такой вызов отвергает.
   value: (element) => {
     try {

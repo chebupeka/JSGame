@@ -41,7 +41,7 @@ import { formatCode } from "./terminal/format.js";
 import { isInside } from "./terminal/lever.js";
 import { setNotch } from "./terminal/marks.js";
 import { errorNotes, rawNote, showNotes } from "./terminal/notes.js";
-import { SELECTOR_MARKS, WORDS } from "./terminal/words.js";
+import { SELECTOR_MARKS, SIGNS, WORDS, signAt } from "./terminal/words.js";
 import { createReplay } from "./trace/replay.js";
 
 const SMALL = `Разверни окно или нажми F11.`;
@@ -151,8 +151,8 @@ const showError = (error) => {
 
   // Опечатка в селекторе: табличка похожей вещи тихо мерцает несколько
   // секунд — вот что на ней выбито на самом деле.
-  const lookalike = place.things.find(({ key }) => {
-    const text = plateText(state.world?.things[key]);
+  const lookalike = place.things.find(({ key, plateClass }) => {
+    const text = plateText(state.world?.things[key], plateClass);
     return (
       text && typed.some((word) => word !== text && distance(word, text) <= 2)
     );
@@ -344,6 +344,7 @@ const [sprites] = await Promise.all([
   document.fonts.load(`1em "JetBrains Mono"`, `a=>Ж`),
   document.fonts.load(`italic 1em "JetBrains Mono"`, `aЖ`),
   document.fonts.load(STENCIL_FONT, `#.-_az09`),
+  document.fonts.load(STENCIL_FONT, `аЯ`),
 ]);
 state.sprites = sprites;
 ctx.imageSmoothingEnabled = false;
@@ -530,9 +531,15 @@ editor.dom.addEventListener(`mousemove`, (event) => {
     return hover([SELECTOR_MARKS[char]]);
   }
 
+  const line = doc.doc.lineAt(pos);
+  const sign = signAt(line.text, pos - line.from);
   const word = doc.wordAt(pos);
-  const text = word && WORDS[doc.sliceDoc(word.from, word.to)];
-  return text ? hover([text]) : unhover();
+  const help = sign
+    ? SIGNS[sign]
+    : word && Object.hasOwn(WORDS, doc.sliceDoc(word.from, word.to))
+      ? WORDS[doc.sliceDoc(word.from, word.to)]
+      : null;
+  return help ? hover([help.text, rawNote(`MDN: ${help.mdn}`)]) : unhover();
 });
 editor.dom.addEventListener(`mouseleave`, unhover);
 
@@ -657,7 +664,10 @@ canvas.addEventListener(`pointerdown`, (event) => {
   // Ctrl+клик по вещи вставляет её селектор туда, где курсор, —
   // как «Copy selector» в DevTools. Табличка вещи вспыхивает.
   const found = thingAt(point);
-  const selector = (event.ctrlKey || event.metaKey) && plateText(found?.[1]);
+  const manifest = place.things.find(({ key }) => key === found?.[0]);
+  const selector =
+    (event.ctrlKey || event.metaKey) &&
+    plateText(found?.[1], manifest?.plateClass);
   if (selector) {
     event.preventDefault();
     editor.dispatch(editor.state.replaceSelection(`\`${selector}\``));
@@ -877,6 +887,7 @@ const step = (now) => {
       sensors: replay.view.sensors,
       showDone: replay.view.finished,
       failed: state.breaker.tripped || !state.lever.closed,
+      code: lastRun,
     });
     updateGirl(state.girl, dt);
     const rate = settings.calm ? GLOW_RATE.calm : GLOW_RATE.normal;
@@ -916,6 +927,9 @@ if (import.meta.env.DEV) {
     editor,
     sandbox,
     step,
+    run,
+    hurry,
+    openTask: () => task,
     goto: (id) =>
       open(TASKS.find((each) => each.id === id || each.place.key === id)),
   });

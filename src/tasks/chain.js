@@ -28,18 +28,29 @@ export const monitorsOf = (tasks, files) =>
     (name) => files[name] ?? null,
   );
 
-// Код без «Дано» прошлой задачи: заметки в начале файла и пустые строки.
-export const withoutBrief = (code) => {
-  const lines = code.split(`\n`);
+// Где в файле кончается «Дано»: заметки в начале и пустые строки.
+const briefEnd = (lines) => {
   const first = lines.findIndex(
     (line) => line.trim() && !line.trim().startsWith(`//`),
   );
-  return first === -1 ? `` : lines.slice(first).join(`\n`);
+  return first === -1 ? lines.length : first;
 };
 
-// Что в терминале при входе: новое «Дано», а если файл уже есть — под ним
-// твой код прошлой задачи.
+export const withoutBrief = (code) => {
+  const lines = code.split(`\n`);
+  return lines.slice(briefEnd(lines)).join(`\n`);
+};
+
+export const briefOf = (code) => {
+  const lines = code.split(`\n`);
+  const end = briefEnd(lines);
+  return lines.slice(0, end).join(`\n`) + (end < lines.length ? `\n` : ``);
+};
+
+// Что в терминале при входе. Файл новый — текст из сценария. Файл уже есть —
+// новое «Дано» из сценария, а под ним твой код прошлой задачи: в сценарии
+// на этом месте эталон, в игре — то, что написал ты.
 export const entryCode = (task, files) =>
   files[task.file]
-    ? `${task.code}${withoutBrief(files[task.file])}`
+    ? `${briefOf(task.code)}${withoutBrief(files[task.file])}`
     : task.code;

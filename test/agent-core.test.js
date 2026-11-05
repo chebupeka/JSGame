@@ -71,6 +71,7 @@ const fakeRead = {
   className: (element) => element.className,
   background: (element) => element.background,
   value: (element) => element.value,
+  text: (element) => element.text,
   rect: (element) => element.rect,
 };
 
@@ -91,6 +92,7 @@ test(`снимок вещи: id, классы, цвет и рамка из вё�
     className: `lamp on`,
     background: `rgb(87, 154, 243)`,
     value: undefined,
+    text: undefined,
     rect: { x: 112, y: 33, width: 7, height: 9 },
   });
 });

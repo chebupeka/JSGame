@@ -1,5 +1,5 @@
 import { blueLight, grey } from "./palette.js";
-import { dot } from "./pixels.js";
+import { dot, rect } from "./pixels.js";
 
 // Таблички на вещах: настоящий id (`#lamp`) или класс (`.frame`) из DOM
 // песочницы, выбитые пиксельным шрифтом Tiny5 (OFL). Буквы строчные, как
@@ -16,6 +16,8 @@ const cache = new Map();
 
 const rasterize = (text) => {
   if (cache.has(text)) return cache.get(text);
+  // Текст на табло бывает новый на каждое событие: памяти это не стоит.
+  if (cache.size > 200) cache.clear();
 
   const canvas = document.createElement(`canvas`);
   const ctx = canvas.getContext(`2d`, { willReadFrequently: true });
@@ -53,23 +55,39 @@ const rasterize = (text) => {
   return bitmap;
 };
 
-// Что выбито на табличке: id, а если его нет — первый класс.
-export const plateText = (thing) => {
+// Что выбито на табличке: id, а если его нет — класс. У вещи с общим первым
+// классом манифест называет свой (preferred), пока он у неё есть.
+export const plateText = (thing, preferred) => {
   if (!thing?.present) return null;
   if (thing.id) return `#${thing.id}`;
 
-  const [first] = thing.className.split(/\s+/).filter(Boolean);
-  return first ? `.${first}` : null;
+  const classes = thing.className.split(/\s+/).filter(Boolean);
+  if (preferred && classes.includes(preferred)) return `.${preferred}`;
+  return classes[0] ? `.${classes[0]}` : null;
 };
 
-// Текст по центру площадки на стене. Табличка горит светло-синим, когда
-// к вещи тянется провод из кода: значит, селектор её нашёл.
+// Текст по центру площадки. С clip шире площадки не бывает: лишнее срезается
+// справа, как overflow у настоящей вещи.
+export const drawStencil = (ctx, box, text, color, clip = false) => {
+  const { x: boxX, y: boxY } = box;
+  const boxW = box.w ?? box.width;
+  const boxH = box.h ?? box.height;
+  const { pixels, left, top, width, height } = rasterize(text);
+  if (!pixels.length) return;
+
+  const inset = Math.floor((boxW - width) / 2);
+  const x = boxX + (clip ? Math.max(1, inset) : inset) - left;
+  const y = boxY + Math.floor((boxH - height) / 2) - top;
+  pixels.forEach(([px, py]) => {
+    if (!clip || x + px < boxX + boxW) dot(ctx, color, x + px, y + py);
+  });
+};
+
+// Табличка горит светло-синим, когда селектор в коде её нашёл. Площадка
+// со slot — со своей тёмной подложкой.
 export const drawPlate = (ctx, plate, text, lit) => {
   if (!text) return;
 
-  const { pixels, left, top, width, height } = rasterize(text);
-  const x = plate.x + Math.floor((plate.w - width) / 2) - left;
-  const y = plate.y + Math.floor((plate.h - height) / 2) - top;
-  const color = lit ? blueLight : grey[4];
-  pixels.forEach(([px, py]) => dot(ctx, color, x + px, y + py));
+  if (plate.slot) rect(ctx, grey[1], plate.x, plate.y, plate.w, plate.h);
+  drawStencil(ctx, plate, text, lit ? blueLight : grey[4]);
 };

@@ -24,6 +24,19 @@ const toSegment = (px, py, [ax, ay], [bx, by]) => {
   return Math.hypot(px - (ax + t * dx), py - (ay + t * dy));
 };
 
+// Свет внутри прямоугольника: сила в каждой точке считается функцией.
+export const drawLightIn = (ctx, { x, y, w, h }, strengthAt) => {
+  for (let py = y; py < y + h; py++) {
+    for (let px = x; px < x + w; px++) {
+      const strength = strengthAt(px, py);
+      if (strength <= 0) continue;
+
+      const color = colorAt(strength, px, py);
+      if (color) dot(ctx, color, px, py);
+    }
+  }
+};
+
 // Пятно лампы на полу: яркое под лампой и сплошной дорожкой от белой
 // полосы до порога двери. Она ходит только по свету, поэтому путь освещён
 // целиком.

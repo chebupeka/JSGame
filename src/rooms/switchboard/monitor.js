@@ -1,4 +1,4 @@
-import { blue, blueLight } from "../../render/palette.js";
+import { blue, blueLight, grey } from "../../render/palette.js";
 import { rect } from "../../render/pixels.js";
 
 // Монитор на стене: решённый файл работает на нём всегда. Экран синий —
@@ -25,5 +25,19 @@ export const drawMonitor = (ctx, screen, code) => {
       Math.min(length, screen.w - 2 - indent),
       1,
     );
+  });
+};
+
+// По монитору на файл. Первый нарисован на фоне комнаты, у остальных
+// корпус рисует код: тёмный экран в рамке ждёт своего файла.
+export const drawMonitors = (ctx, screens, codes) => {
+  screens.forEach((screen, index) => {
+    if (index > 0) {
+      const { x, y, w, h } = screen;
+      rect(ctx, grey[0], x - 1, y - 1, w + 2, h + 2);
+      rect(ctx, grey[3], x - 1, y + h + 1, w + 2, 1);
+      rect(ctx, grey[1], x, y, w, h);
+    }
+    drawMonitor(ctx, screen, codes[index]);
   });
 };

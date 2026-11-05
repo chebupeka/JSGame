@@ -1,5 +1,6 @@
 import { LAYOUTS } from "../screen/layout.js";
 import { SCENE } from "../screen/scale.js";
+import { briefOf } from "../tasks/chain.js";
 import { drawFloorMockup } from "./mockup.js";
 
 // Клавиши разработчика, только в `npm run dev`:
@@ -37,16 +38,31 @@ export const installDevTools = ({
   editor,
   sandbox,
   step,
+  run,
+  hurry,
+  openTask,
   goto,
 }) => {
   checkPixels(canvas, state);
 
   // Для проверок из консоли DevTools: jsgame.state, jsgame.render(),
-  // jsgame.query([`#lamp`]), jsgame.setCode(`…`), jsgame.goto(`frame-room`).
+  // jsgame.query([`#lamp`]), jsgame.setCode(`…`), jsgame.goto(`frame-room`),
+  // jsgame.play(`код`) — запустить этот код в открытой задаче,
+  // jsgame.solve() — её эталон из сценария, под «Дано».
+  const play = (code) => {
+    window.jsgame.setCode(code);
+    run();
+  };
   window.jsgame = {
     state,
     render,
     goto,
+    hurry,
+    task: openTask,
+    play,
+    solve: () => play(`${briefOf(openTask().code)}${openTask().solution}`),
+    doc: () => editor.state.doc.toString(),
+    notes: () => document.querySelector(`#notes`).innerText,
     // Кадры по таймеру: в скрытой вкладке requestAnimationFrame стоит,
     // а проверять сценарий настоящим временем всё равно нужно.
     pump: () => setInterval(() => step(performance.now()), 16),

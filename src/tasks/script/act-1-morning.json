@@ -1,0 +1,711 @@
+[
+  {
+    "id": "lamp",
+    "chapter": 1,
+    "number": "1.1",
+    "title": "Лампа",
+    "file": "lamp.js",
+    "code": "// Хочу, чтобы в щитовой загорелась лампа.\n//\n// Дано:\n// - на стене лампа: <div id=\"lamp\" class=\"lamp\">\n// - в CSS станции лампа с классом on горит\n//\n// Найди лампу по id и добавь ей класс on.\n",
+    "notes": [
+      "Найти вещь: document.querySelector(`#id`). Решётка # значит «по id». Кавычка ` — клавиша Ё в английской раскладке.",
+      "Добавить вещи класс: .classList.add(`класс`). Звенья пишутся подряд, через точку.",
+      "Запуск — Ctrl+Enter или рубильник. Щёлкни по полям — будет подсказка."
+    ],
+    "hints": [
+      "Посмотри на стену: на табличке у лампы выбито её имя. Оно же в «Дано».",
+      "Нужны два звена: querySelector находит лампу, classList.add добавляет ей класс on.",
+      "document.querySelector(`#____`).classList.add(`__`);"
+    ],
+    "solution": "document.querySelector(`#lamp`).classList.add(`on`);\n"
+  },
+  {
+    "id": "board",
+    "chapter": 1,
+    "number": "1.2",
+    "title": "Табло над дверью",
+    "file": "board.js",
+    "code": "// Хочу знать, куда ведёт дверь.\n//\n// Дано:\n// - над дверью табло: <div id=\"board\" class=\"board\">\n// - в CSS станции пустое табло тёмное,\n//   табло с текстом светится\n// - дверь ведёт к комнате с окном\n//\n// Найди табло по id и напиши на нём: к окну\n",
+    "notes": [
+      "Текст вещи: .textContent = `текст`. Знак = значит «положи справа налево».",
+      "classList.add — действие, его зовут скобками: это метод. textContent — место для текста, в него кладут через =.",
+      "Наведи мышь на вещь — на полях её настоящий HTML. Это щуп. Ctrl+клик по вещи вставит в код её селектор: то, по чему её ищут, вроде `#lamp`."
+    ],
+    "hints": [
+      "Над проёмом тёмное табло. Наведи на него мышь — на полях его HTML.",
+      "Найди табло через querySelector, как лампу, и положи текст в его textContent.",
+      "document.querySelector(`#_____`).textContent = `______`;"
+    ],
+    "solution": "document.querySelector(`#board`).textContent = `к окну`;\n"
+  },
+  {
+    "id": "door-lamp",
+    "chapter": 1,
+    "number": "1.3",
+    "title": "Лампа в тамбуре",
+    "file": "door-lamp.js",
+    "code": "// Хочу, чтобы в тамбуре за дверью был свет.\n//\n// Дано:\n// - в проёме висит ещё одна лампа:\n//   <div class=\"lamp door-lamp\">\n// - id у неё нет, только классы lamp и door-lamp\n// - в CSS станции любая лампа с классом on горит\n//\n// Найди лампу по классу door-lamp и добавь ей класс on.\n",
+    "notes": [
+      "Найти по классу: document.querySelector(`.класс`). Точка значит «по классу».",
+      "Класс — трафарет, он бывает на многих вещах. Найдётся первая по разметке."
+    ],
+    "hints": [
+      "Лампа висит в проёме, сразу за порогом. Наведи на неё мышь: классы видны в её HTML.",
+      "Класс lamp есть у обеих ламп щитовой. Нужен тот, что есть только у этой.",
+      "document.querySelector(`.____-____`).classList.add(`on`);"
+    ],
+    "solution": "document.querySelector(`.door-lamp`).classList.add(`on`);\n"
+  },
+  {
+    "id": "plafond",
+    "chapter": 1,
+    "number": "1.4",
+    "title": "Плафон в тамбуре",
+    "file": "plafond.js",
+    "code": "// Хочу, чтобы тамбур было видно до конца.\n//\n// Дано:\n// - в глубине тамбура старый плафон:\n//   <div id=\"plafond\" class=\"plafond\">\n// - в CSS станции у плафона нет класса «горит»,\n//   свет ему можно дать только цветом фона\n// - чем светлее цвет, тем больше света. Например: #81b5f6\n//\n// Найди плафон и задай ему светлый backgroundColor.\n",
+    "notes": [
+      "Задать вещи цвет фона: .style.backgroundColor = `цвет`.",
+      "В CSS это background-color, в JS — backgroundColor: дефис нельзя, следующее слово с большой буквы.",
+      "Строка выйдет чуть длиннее стекла. Так тоже работает: переносы строк возьмёт на себя инструмент из соседней комнаты."
+    ],
+    "hints": [
+      "Плафон в глубине тамбура, за лампой в проёме. Наведи мышь — на полях его HTML.",
+      "Найди плафон по id, у находки возьми style, у style — backgroundColor, и положи туда цвет строкой.",
+      "document.querySelector(`#_______`).style.backgroundColor = `#______`;"
+    ],
+    "solution": "document.querySelector(`#plafond`).style.backgroundColor =\n  `#81b5f6`;\n"
+  },
+  {
+    "id": "frame-value",
+    "chapter": 2,
+    "number": "2.1",
+    "title": "Цвет с ручки",
+    "file": "frame.js",
+    "code": "// Хочу, чтобы окно засветилось цветом, что стоит на ручке.\n//\n// Дано:\n// - на дальней стене окно: <div class=\"frame\">\n// - справа ручка: <input type=\"color\" id=\"frame-picker\">\n// - цвет, на который стоит ручка, лежит в её value\n//\n// Возьми value ручки и поставь окну в backgroundColor.\n",
+    "notes": [
+      "Значение ручки: document.querySelector(`#id`).value.",
+      "= берёт то, что справа, и кладёт в то, что слева. Слева — то, что меняешь.",
+      "Посмотреть запуск ещё раз медленно: Shift+Ctrl+Enter или тумблер на корпусе."
+    ],
+    "hints": [
+      "Окно — на дальней стене, ручка — справа. Наведи мышь на ручку: в её HTML видно value.",
+      "Слева от = — backgroundColor окна, как у плафона. Справа — value ручки.",
+      "document.querySelector(`.____`).style.backgroundColor = и на следующей строке document.querySelector(`#____-______`).value;"
+    ],
+    "solution": "document.querySelector(`.frame`).style.backgroundColor =\n  document.querySelector(`#frame-picker`).value;\n"
+  },
+  {
+    "id": "frame-listen",
+    "chapter": 2,
+    "number": "2.2",
+    "title": "Датчик на ручке",
+    "file": "frame.js",
+    "code": "// Хочу, чтобы окно светило тем цветом, что на ручке.\n//\n// Дано:\n// - код ниже красит окно один раз, при запуске\n// - она крутит ручку, и на каждый щелчок\n//   ручка шлёт событие input\n//\n// Повесь на ручку датчик input: когда крутят — крась окно.\n\ndocument.querySelector(`.frame`).style.backgroundColor =\n  document.querySelector(`#frame-picker`).value;\n",
+    "notes": [
+      "Датчик: вещь.addEventListener(`событие`, () => { … }).",
+      "Строки между { и } выполнятся на каждое событие, а не при запуске. Такая запись — функция.",
+      "Ручка ни к чему не подключена. Найди её, повесь датчик, а внутри крась окно."
+    ],
+    "hints": [
+      "Посмотри на ручку: она пробует её и ждёт. Ручка шлёт input на каждый щелчок.",
+      "Найди ручку, у находки вызови addEventListener: первое — `input`, второе — функция. Твои две строки переезжают внутрь функции.",
+      "document.querySelector(`#frame-picker`).addEventListener(`_____`, () => {, внутри две твои строки, в конце });"
+    ],
+    "solution": "document\n  .querySelector(`#frame-picker`)\n  .addEventListener(`input`, () => {\n    document.querySelector(`.frame`).style.backgroundColor =\n      document.querySelector(`#frame-picker`).value;\n  });\n"
+  },
+  {
+    "id": "frame-target",
+    "chapter": 2,
+    "number": "2.3",
+    "title": "Событие знает, откуда оно",
+    "file": "frame.js",
+    "code": "// Хочу, чтобы ручку не искали на каждый щелчок.\n//\n// Дано:\n// - сейчас внутри датчика ручка ищется заново\n// - датчик сам отдаёт функции событие\n// - в событии evt.target — вещь, которая его прислала\n//\n// Возьми value у evt.target вместо второго поиска ручки.\n\ndocument\n  .querySelector(`#frame-picker`)\n  .addEventListener(`input`, () => {\n    document.querySelector(`.frame`).style.backgroundColor =\n      document.querySelector(`#frame-picker`).value;\n  });\n",
+    "notes": [
+      "Принять событие: (evt) => { … }. Имя в скобках — твоё, принято evt.",
+      "Вещь, откуда пришло событие: evt.target. Её значение: evt.target.value."
+    ],
+    "hints": [
+      "Пока она крутит, табличка на ручке мигает: ручку ищут на каждый щелчок, хотя событие пришло от неё.",
+      "Дай функции имя для события в скобках, а второй поиск замени на evt.target.",
+      ".addEventListener(`input`, (___) => { и ниже ___.______.value;"
+    ],
+    "solution": "document\n  .querySelector(`#frame-picker`)\n  .addEventListener(`input`, (evt) => {\n    document.querySelector(`.frame`).style.backgroundColor =\n      evt.target.value;\n  });\n"
+  },
+  {
+    "id": "small-ladder",
+    "chapter": 2,
+    "number": "2.4",
+    "title": "Лесенка",
+    "file": "small.js",
+    "code": "// Хочу, чтобы окошко над дверью тоже светило цветом ручки.\n//\n// Дано:\n// - окошко: <div class=\"frame small\">\n// - код ниже вставлен одной строкой, как его копируют\n//   из чата. В нём одна опечатка\n// - Shift+Alt+F раскладывает код по строкам, как Prettier\n//\n// Запусти, найди опечатку по номеру строки и исправь.\n\ndocument.querySelector(`#frame-pickr`).addEventListener(`input`, (evt) => { document.querySelector(`.small`).style.backgroundColor = evt.target.value; });\n",
+    "notes": [
+      "Строка длиннее стекла: конец уехал за край. Так тоже работает, но читать нельзя.",
+      "Shift+Alt+F или тумблер «выровнять» на корпусе расставит переносы сам. Это Prettier, настоящая программа: она форматирует код."
+    ],
+    "hints": [
+      "Запусти и посмотри на номер строки и столбца в ошибке. Потом нажми Shift+Alt+F и запусти ещё раз.",
+      "После раскладки ошибка указывает на одно звено. Значит, ничего не нашло звено над ним.",
+      ".querySelector(`#frame-______`) — сравни с табличкой на ручке."
+    ],
+    "solution": "document\n  .querySelector(`#frame-picker`)\n  .addEventListener(`input`, (evt) => {\n    document.querySelector(`.small`).style.backgroundColor =\n      evt.target.value;\n  });\n"
+  },
+  {
+    "id": "small-change",
+    "chapter": 2,
+    "number": "2.5",
+    "title": "Отпустили ручку",
+    "file": "small.js",
+    "code": "// Хочу, чтобы окошко брало цвет, когда ручку отпустят.\n//\n// Дано:\n// - окошко над дверью — метка: цвет, где она остановилась\n// - пока крутят, ручка шлёт input на каждый щелчок,\n//   когда отпускают — один раз change\n//\n// Пусть окошко слушает change. Большое окно не трогай.\n\ndocument\n  .querySelector(`#frame-picker`)\n  .addEventListener(`input`, (evt) => {\n    document.querySelector(`.small`).style.backgroundColor =\n      evt.target.value;\n  });\n",
+    "notes": [
+      "Имя события решает, когда сработает датчик: input — пока крутят, change — когда отпустили, click — когда щёлкнули.",
+      "Наведи мышь на слово input в коде — на полях справка о нём."
+    ],
+    "hints": [
+      "Смотри на окошко, пока она крутит: оно меняется на каждый щелчок, а она ещё не остановилась.",
+      "Поменяй одно слово — имя события.",
+      ".addEventListener(`______`, (evt) => {"
+    ],
+    "solution": "document\n  .querySelector(`#frame-picker`)\n  .addEventListener(`change`, (evt) => {\n    document.querySelector(`.small`).style.backgroundColor =\n      evt.target.value;\n  });\n"
+  },
+  {
+    "id": "frame-once",
+    "chapter": 2,
+    "number": "2.6",
+    "title": "Найти один раз",
+    "file": "frame.js",
+    "code": "// Хочу, чтобы окно не искали на каждый щелчок.\n//\n// Дано:\n// - сейчас окно ищется внутри датчика, заново на каждый\n//   щелчок ручки: реле трещит, табличка окна мигает\n// - окно на стене одно и никуда не денется\n//\n// Найди окно один раз, до датчика, и назови его frame.\n\ndocument\n  .querySelector(`#frame-picker`)\n  .addEventListener(`input`, (evt) => {\n    document.querySelector(`.frame`).style.backgroundColor =\n      evt.target.value;\n  });\n",
+    "notes": [
+      "Дать имя: const имя = значение;. Такое имя называют переменной. Дальше пишешь его вместо поиска.",
+      "Функция видит имена, которые объявлены выше неё."
+    ],
+    "hints": [
+      "Пока она крутит, табличка окна мигает и трещит реле: окно ищут на каждый щелчок.",
+      "Вынеси поиск окна на первую строку кода, под именем frame. Внутри датчика оставь frame.style….",
+      "const _____ = document.querySelector(`.frame`); и внутри: _____.style.backgroundColor = evt.target.value;"
+    ],
+    "solution": "const frame = document.querySelector(`.frame`);\n\ndocument\n  .querySelector(`#frame-picker`)\n  .addEventListener(`input`, (evt) => {\n    frame.style.backgroundColor = evt.target.value;\n  });\n"
+  },
+  {
+    "id": "color-board",
+    "chapter": 2,
+    "number": "2.7",
+    "title": "Настоящий цвет на табло",
+    "file": "color-board.js",
+    "code": "// Хочу видеть настоящий цвет, где она остановилась.\n//\n// Дано:\n// - станция видит только яркость: оттенка в окне не видно\n// - у двери табло: <div id=\"color-board\" class=\"board\">\n//\n// Когда ручку отпустят, пиши на табло: цвет и value ручки,\n// например: цвет #3a6ea5\n",
+    "notes": [
+      "Вставить значение в строку: `текст ${значение}`. Работает только в обратных кавычках.",
+      "Датчик — как на окошке, change. Имя табло — как у окна, через const."
+    ],
+    "hints": [
+      "Табло у двери пустое. Его id — на табличке и в «Дано».",
+      "Найди табло один раз, повесь на ручку датчик change, внутри положи в textContent шаблонную строку.",
+      "const board = document.querySelector(`#_____-_____`);\ndocument\n  .querySelector(`#frame-picker`)\n  .addEventListener(`______`, (evt) => {\n    board.textContent = `цвет ${___.______.value}`;\n  });"
+    ],
+    "solution": "const board = document.querySelector(`#color-board`);\n\ndocument\n  .querySelector(`#frame-picker`)\n  .addEventListener(`change`, (evt) => {\n    board.textContent = `цвет ${evt.target.value}`;\n  });\n"
+  },
+  {
+    "id": "archive-all",
+    "chapter": 3,
+    "number": "3.1",
+    "title": "Все ящики",
+    "file": "full.js",
+    "code": "// Хочу заглянуть во все ящики.\n//\n// Дано:\n// - на полке шесть ящиков: <div class=\"drawer\">\n// - в CSS станции ящик с классом open выдвинут\n// - querySelector нашёл бы только первый\n//\n// Найди все ящики и каждому добавь класс open.\n",
+    "notes": [
+      "Найти все: document.querySelectorAll(`.класс`). Это список вещей, а не одна вещь. Его настоящее имя — NodeList.",
+      "Пройти по списку: .forEach((имя) => { … }). Функция сработает для каждой вещи по очереди и получит её под твоим именем."
+    ],
+    "hints": [
+      "Наведи мышь на полку: у всех шести ящиков класс drawer.",
+      "querySelectorAll найдёт все ящики, forEach отдаст их функции по одному. Внутри добавь класс тому ящику, что пришёл.",
+      "document.querySelectorAll(`.______`).forEach((drawer) => {\n  drawer.classList.add(`____`);\n});"
+    ],
+    "solution": "document.querySelectorAll(`.drawer`).forEach((drawer) => {\n  drawer.classList.add(`open`);\n});\n"
+  },
+  {
+    "id": "archive-push",
+    "chapter": 3,
+    "number": "3.2",
+    "title": "Задвинуть рукой",
+    "file": "shelf.js",
+    "code": "// Хочу, чтобы пустой ящик можно было задвинуть рукой.\n//\n// Дано:\n// - твой full.js выдвигает при запуске все шесть\n// - она тянет ящик за ручку: ящик шлёт click\n// - без класса open ящик задвинут\n//\n// Повесь на каждый ящик датчик click: убирай open.\n",
+    "notes": [
+      "Убрать класс: .classList.remove(`класс`). Пара к add.",
+      "Датчик можно повесить внутри forEach. Тогда он будет на каждом ящике, а drawer внутри — тот ящик, на котором он висит."
+    ],
+    "hints": [
+      "Посмотри, как она тянет пустой ящик: рука дёргает ручку, а ящик стоит. Датчика на нём нет.",
+      "Пройди по ящикам, как в full.js. На каждый повесь датчик click, внутри убери у drawer класс open.",
+      "document.querySelectorAll(`.drawer`).forEach((drawer) => {\n  drawer.addEventListener(`_____`, () => {\n    drawer.classList.______(`open`);\n  });\n});"
+    ],
+    "solution": "document.querySelectorAll(`.drawer`).forEach((drawer) => {\n  drawer.addEventListener(`click`, () => {\n    drawer.classList.remove(`open`);\n  });\n});\n"
+  },
+  {
+    "id": "archive-tag",
+    "chapter": 3,
+    "number": "3.3",
+    "title": "Бирка на табло",
+    "file": "label.js",
+    "code": "// Хочу знать, сколько находок в ящике, который она тянет.\n//\n// Дано:\n// - на каждом ящике бумажная бирка: data-count=\"2\"\n// - над полкой табло: <div id=\"tag-board\" class=\"board\">\n// - бирки мелкие, ей их не прочитать\n//\n// Когда она тянет ящик, пиши на табло его data-count.\n",
+    "notes": [
+      "Бирка data-имя читается так: вещь.dataset.имя. Без data-.",
+      "С бирки всегда приходит строка, то есть текст, даже если там цифры: \"2\", в кавычках."
+    ],
+    "hints": [
+      "Наведи мышь на ящик: в его HTML видна бирка data-count. Табло над полкой — #tag-board.",
+      "Найди табло один раз. Датчик click на каждый ящик, как в shelf.js. Внутри положи в textContent табло бирку ящика.",
+      "const board = document.querySelector(`#___-_____`);\ndocument.querySelectorAll(`.drawer`).forEach((drawer) => {\n  drawer.addEventListener(`click`, () => {\n    board.textContent = drawer.dataset._____;\n  });\n});"
+    ],
+    "solution": "const board = document.querySelector(`#tag-board`);\n\ndocument.querySelectorAll(`.drawer`).forEach((drawer) => {\n  drawer.addEventListener(`click`, () => {\n    board.textContent = drawer.dataset.count;\n  });\n});\n"
+  },
+  {
+    "id": "archive-full",
+    "chapter": 3,
+    "number": "3.4",
+    "title": "Только где что-то есть",
+    "file": "full.js",
+    "code": "// Хочу, чтобы открылись только ящики, где что-то есть.\n//\n// Дано:\n// - у пустого ящика бирка data-count=\"0\"\n// - код ниже выдвигает все шесть\n//\n// Выдвигай ящик, только если на бирке не 0.\n\ndocument.querySelectorAll(`.drawer`).forEach((drawer) => {\n  drawer.classList.add(`open`);\n});\n",
+    "notes": [
+      "Условие: if (условие) { … }. Строки в { } выполнятся, только если условие верно.",
+      "Сравнить: а === б — «равны», а !== б — «не равны». Ответ — true или false, «да» или «нет».",
+      "С бирки приходит строка. Сравнивай со строкой: `0`."
+    ],
+    "hints": [
+      "Наведи щуп на первый ящик: data-count=\"0\".",
+      "Строку с add оберни в if. Условие — бирка не равна `0`.",
+      "  if (drawer.dataset.count ___ `_`) {\n    drawer.classList.add(`open`);\n  }"
+    ],
+    "solution": "document.querySelectorAll(`.drawer`).forEach((drawer) => {\n  if (drawer.dataset.count !== `0`) {\n    drawer.classList.add(`open`);\n  }\n});\n"
+  },
+  {
+    "id": "archive-empty",
+    "chapter": 3,
+    "number": "3.5",
+    "title": "Пусто",
+    "file": "label.js",
+    "code": "// Хочу, чтобы на пустом ящике табло писало: пусто.\n//\n// Дано:\n// - сейчас на табло голая цифра: 0, 2, 3\n// - ей нужно слово: пусто или находок 2\n//\n// Если на бирке 0 — пиши пусто, иначе — находок и число.\n\nconst board = document.querySelector(`#tag-board`);\n\ndocument.querySelectorAll(`.drawer`).forEach((drawer) => {\n  drawer.addEventListener(`click`, () => {\n    board.textContent = drawer.dataset.count;\n  });\n});\n",
+    "notes": [
+      "Иначе: if (…) { … } else { … }. После else — что делать, когда условие неверно. Своего условия у else нет."
+    ],
+    "hints": [
+      "Потяни пустой ящик и посмотри на табло: там 0. Ей это ни о чём не говорит.",
+      "Строку с textContent оберни в if и else: если бирка `0` — пусто, иначе — находок и бирка через ${}.",
+      "    if (drawer.dataset.count === `0`) {\n      board.textContent = `_____`;\n    } ____ {\n      board.textContent = `находок ${______.dataset.count}`;\n    }"
+    ],
+    "solution": "const board = document.querySelector(`#tag-board`);\n\ndocument.querySelectorAll(`.drawer`).forEach((drawer) => {\n  drawer.addEventListener(`click`, () => {\n    if (drawer.dataset.count === `0`) {\n      board.textContent = `пусто`;\n    } else {\n      board.textContent = `находок ${drawer.dataset.count}`;\n    }\n  });\n});\n"
+  },
+  {
+    "id": "archive-count",
+    "chapter": 3,
+    "number": "3.6",
+    "title": "Сколько ящиков",
+    "file": "count.js",
+    "code": "// Хочу знать, сколько ящиков с находками.\n//\n// Дано:\n// - у стола табло: <div id=\"table-board\" class=\"board\">\n// - ящик с находками — тот, где на бирке не 0\n//\n// Посчитай такие ящики и напиши на табло:\n// ящиков с находками: и число.\n",
+    "notes": [
+      "Имя, которое меняется: let имя = значение;. Новое значение — имя = …;, уже без let.",
+      "счёт = счёт + 1 — возьми счёт, прибавь один, положи обратно."
+    ],
+    "hints": [
+      "На столе пустое табло #table-board.",
+      "До forEach заведи let full = 0. В функции, если бирка не `0`, прибавляй к full один. После forEach — на табло.",
+      "let full = _;\ndocument.querySelectorAll(`.drawer`).forEach((drawer) => {\n  if (drawer.dataset.count !== `0`) {\n    full = ____ + 1;\n  }\n});\ndocument.querySelector(`#table-board`).textContent =\n  `ящиков с находками: ${____}`;"
+    ],
+    "solution": "let full = 0;\n\ndocument.querySelectorAll(`.drawer`).forEach((drawer) => {\n  if (drawer.dataset.count !== `0`) {\n    full = full + 1;\n  }\n});\n\ndocument.querySelector(`#table-board`).textContent =\n  `ящиков с находками: ${full}`;\n"
+  },
+  {
+    "id": "archive-sum",
+    "chapter": 3,
+    "number": "3.7",
+    "title": "Сколько находок",
+    "file": "count.js",
+    "code": "// Хочу знать, сколько всего находок.\n//\n// Дано:\n// - data-count на бирке — сколько находок в ящике\n// - код ниже считает ящики, а не находки\n//\n// Прибавляй число с бирки и пиши: находок: и сумма.\n\nlet full = 0;\n\ndocument.querySelectorAll(`.drawer`).forEach((drawer) => {\n  if (drawer.dataset.count !== `0`) {\n    full = full + 1;\n  }\n});\n\ndocument.querySelector(`#table-board`).textContent =\n  `ящиков с находками: ${full}`;\n",
+    "notes": [
+      "Строку — в число: Number(строка). Number(`2`) — это 2.",
+      "+ со строкой не складывает, а склеивает: `1` + `2` — это `12`."
+    ],
+    "hints": [
+      "На бирках 0, 2, 1, 3, 0, 2. Посчитай сам, сколько выйдет.",
+      "Прибавляй не один, а бирку, переведённую в число. Условие больше не нужно: пустой прибавит ноль.",
+      "let total = 0;\ndocument.querySelectorAll(`.drawer`).forEach((drawer) => {\n  total = total + ______(drawer.dataset.count);\n});\ndocument.querySelector(`#table-board`).textContent =\n  `находок: ${_____}`;"
+    ],
+    "solution": "let total = 0;\n\ndocument.querySelectorAll(`.drawer`).forEach((drawer) => {\n  total = total + Number(drawer.dataset.count);\n});\n\ndocument.querySelector(`#table-board`).textContent =\n  `находок: ${total}`;\n"
+  },
+  {
+    "id": "archive-locked",
+    "chapter": 3,
+    "number": "3.8",
+    "title": "Заперт",
+    "file": "label.js",
+    "code": "// Хочу, чтобы табло говорило, что ящик заперт.\n//\n// Дано:\n// - четвёртый ящик заперт: <div class=\"drawer locked\">\n// - на его бирке 3, но взять оттуда нельзя\n//\n// Для запертого пиши на табло: заперт.\n\nconst board = document.querySelector(`#tag-board`);\n\ndocument.querySelectorAll(`.drawer`).forEach((drawer) => {\n  drawer.addEventListener(`click`, () => {\n    if (drawer.dataset.count === `0`) {\n      board.textContent = `пусто`;\n    } else {\n      board.textContent = `находок ${drawer.dataset.count}`;\n    }\n  });\n});\n",
+    "notes": [
+      "Есть ли класс: вещь.classList.contains(`класс`). Отвечает true или false, поэтому годится в if.",
+      "Строки идут сверху вниз. Что положишь в textContent последним, то и останется на табло."
+    ],
+    "hints": [
+      "Наведи щуп на четвёртый ящик: class=\"drawer locked\".",
+      "Внутри датчика, ниже готовых if и else, добавь новый if: если у ящика есть класс locked, положи на табло заперт.",
+      "    if (drawer.classList.________(`______`)) {\n      board.textContent = `______`;\n    }"
+    ],
+    "solution": "const board = document.querySelector(`#tag-board`);\n\ndocument.querySelectorAll(`.drawer`).forEach((drawer) => {\n  drawer.addEventListener(`click`, () => {\n    if (drawer.dataset.count === `0`) {\n      board.textContent = `пусто`;\n    } else {\n      board.textContent = `находок ${drawer.dataset.count}`;\n    }\n\n    if (drawer.classList.contains(`locked`)) {\n      board.textContent = `заперт`;\n    }\n  });\n});\n"
+  },
+  {
+    "id": "archive-branches",
+    "chapter": 3,
+    "number": "3.8a",
+    "title": "Одна запись",
+    "file": "label.js",
+    "code": "// Хочу, чтобы на запертый ящик табло писало один раз.\n//\n// Дано:\n// - сейчас на запертый оно пишет находок 3,\n//   а следующий if пишет поверх заперт\n//\n// Сначала спроси про замок, потом про 0, а иначе —\n// находок. Выполниться должна одна ветка.\n\nconst board = document.querySelector(`#tag-board`);\n\ndocument.querySelectorAll(`.drawer`).forEach((drawer) => {\n  drawer.addEventListener(`click`, () => {\n    if (drawer.dataset.count === `0`) {\n      board.textContent = `пусто`;\n    } else {\n      board.textContent = `находок ${drawer.dataset.count}`;\n    }\n\n    if (drawer.classList.contains(`locked`)) {\n      board.textContent = `заперт`;\n    }\n  });\n});\n",
+    "notes": [
+      "Ещё одна ветка: else if (условие) { … } — «иначе, если». Это else и сразу новый if.",
+      "Условия проверяются сверху вниз. Первая верная ветка выполнится, на остальные даже не смотрят."
+    ],
+    "hints": [
+      "Запусти медленно и смотри на табло, когда она тянет запертый: на нём мигает находок 3, потом заперт.",
+      "Перенеси проверку замка наверх. Проверку на 0 поставь за ней, через else if. Последним остаётся else.",
+      "    if (drawer.classList.contains(`locked`)) {\n      board.textContent = `заперт`;\n    } ____ __ (drawer.dataset.count === `0`) {\n      board.textContent = `пусто`;\n    } ____ {"
+    ],
+    "solution": "const board = document.querySelector(`#tag-board`);\n\ndocument.querySelectorAll(`.drawer`).forEach((drawer) => {\n  drawer.addEventListener(`click`, () => {\n    if (drawer.classList.contains(`locked`)) {\n      board.textContent = `заперт`;\n    } else if (drawer.dataset.count === `0`) {\n      board.textContent = `пусто`;\n    } else {\n      board.textContent = `находок ${drawer.dataset.count}`;\n    }\n  });\n});\n"
+  },
+  {
+    "id": "archive-carry",
+    "chapter": 3,
+    "number": "3.9",
+    "title": "Сколько она унесёт",
+    "file": "count.js",
+    "code": "// Хочу знать, сколько она унесёт.\n//\n// Дано:\n// - из запертого ящика ей ничего не взять\n//\n// Прибавляй только незапертые и пиши:\n// можно унести: и число.\n\nlet total = 0;\n\ndocument.querySelectorAll(`.drawer`).forEach((drawer) => {\n  total = total + Number(drawer.dataset.count);\n});\n\ndocument.querySelector(`#table-board`).textContent =\n  `находок: ${total}`;\n",
+    "notes": [
+      "«Не»: !условие. !true — это false, !false — true.",
+      "! ставят перед тем, что переворачивают: !вещь.classList.contains(`класс`)."
+    ],
+    "hints": [
+      "Посмотри на стол: табло говорит находок: 8, а она приносит пять. Три лежат за замком.",
+      "Строку с прибавлением оберни в if: если ящик не заперт. «Не» — это ! перед contains.",
+      "  if (_drawer.classList.contains(`______`)) {\n    total = total + Number(drawer.dataset.count);\n  }"
+    ],
+    "solution": "let total = 0;\n\ndocument.querySelectorAll(`.drawer`).forEach((drawer) => {\n  if (!drawer.classList.contains(`locked`)) {\n    total = total + Number(drawer.dataset.count);\n  }\n});\n\ndocument.querySelector(`#table-board`).textContent =\n  `можно унести: ${total}`;\n"
+  },
+  {
+    "id": "archive-truthy",
+    "chapter": 3,
+    "number": "3.9a",
+    "title": "Ноль в кавычках",
+    "file": "shelf-lamp.js",
+    "code": "// Хочу, чтобы лампа над полкой горела, только если\n// в первом ящике что-то есть.\n//\n// Дано:\n// - над полкой лампа: <div id=\"shelf-lamp\" class=\"lamp\">\n// - код ниже писала станция. На первом ящике бирка 0,\n//   а лампа горит, и она идёт к нему зря\n//\n// Поправь условие: на бирке 0 лампа не горит.\n\nconst first = document.querySelector(`.drawer`);\n\nif (first.dataset.count) {\n  document.querySelector(`#shelf-lamp`).classList.add(`on`);\n}\n",
+    "notes": [
+      "В if годится любое значение. «Нет» для него значат шесть: false, 0, пустая строка, null, undefined, NaN. Их зовут falsy.",
+      "Все остальные значат «да», их зовут truthy. Даже `0` и `false`: это непустые строки."
+    ],
+    "hints": [
+      "Наведи щуп на first.dataset.count в строке 13: \"0\", в кавычках. Непустая строка — truthy.",
+      "Число 0 — falsy. Переведи бирку в число: это ты уже делал.",
+      "if (______(first.dataset.count)) {"
+    ],
+    "solution": "const first = document.querySelector(`.drawer`);\n\nif (Number(first.dataset.count)) {\n  document.querySelector(`#shelf-lamp`).classList.add(`on`);\n}\n"
+  },
+  {
+    "id": "archive-and",
+    "chapter": 3,
+    "number": "3.10",
+    "title": "Запертый не выдвигать",
+    "file": "full.js",
+    "code": "// Хочу, чтобы запертый ящик не дёргался.\n//\n// Дано:\n// - запертый ящик с классом open дребезжит\n//   и не выдвигается\n// - код ниже выдвигает его: на бирке у него 3\n//\n// Выдвигай ящик, если на бирке не 0 и он не заперт.\n\ndocument.querySelectorAll(`.drawer`).forEach((drawer) => {\n  if (drawer.dataset.count !== `0`) {\n    drawer.classList.add(`open`);\n  }\n});\n",
+    "notes": [
+      "«И»: а && б. Верно, только если верны обе. Если а — «нет», б уже не проверяют.",
+      "Длинное условие Shift+Alt+F разложит по строкам само."
+    ],
+    "hints": [
+      "Посмотри на четвёртый ящик после запуска: он дребезжит, а выдвинуть его нельзя.",
+      "В условие if добавь вторую часть через &&: ящик не заперт.",
+      "  if (\n    drawer.dataset.count !== `0` __\n    _drawer.classList.contains(`locked`)\n  ) {"
+    ],
+    "solution": "document.querySelectorAll(`.drawer`).forEach((drawer) => {\n  if (\n    drawer.dataset.count !== `0` &&\n    !drawer.classList.contains(`locked`)\n  ) {\n    drawer.classList.add(`open`);\n  }\n});\n"
+  },
+  {
+    "id": "archive-return",
+    "chapter": 3,
+    "number": "3.11",
+    "title": "Причина своей строкой",
+    "file": "full.js",
+    "code": "// Хочу видеть, почему ящик не выдвинут.\n//\n// Дано:\n// - в условии ниже две причины сразу: показ по шагам\n//   встаёт на всё условие, не видно, на какой из них\n//\n// Каждую причину — своей строкой: если она есть,\n// сразу выходи из функции.\n\ndocument.querySelectorAll(`.drawer`).forEach((drawer) => {\n  if (\n    drawer.dataset.count !== `0` &&\n    !drawer.classList.contains(`locked`)\n  ) {\n    drawer.classList.add(`open`);\n  }\n});\n",
+    "notes": [
+      "Выйти из функции: return;. Строки ниже не выполнятся.",
+      "В forEach return выходит только из функции этого ящика. Следующий ящик она получит заново.",
+      "Короткий if можно писать в одну строку, без { }: if (условие) действие;. Здесь действие — return;."
+    ],
+    "hints": [
+      "Запусти медленно и смотри на четвёртый ящик: кромка встаёт на всё условие, а какая часть сказала «нет» — не видно.",
+      "Две строки if (…) return;: заперт — выход, бирка 0 — выход. Ниже — add, уже без if.",
+      "  if (drawer.classList.contains(`locked`)) ______;\n  if (drawer.dataset.count ___ `0`) return;\n  drawer.classList.add(`open`);"
+    ],
+    "solution": "document.querySelectorAll(`.drawer`).forEach((drawer) => {\n  if (drawer.classList.contains(`locked`)) return;\n  if (drawer.dataset.count === `0`) return;\n\n  drawer.classList.add(`open`);\n});\n"
+  },
+  {
+    "id": "archive-loop",
+    "chapter": 3,
+    "number": "3.12",
+    "title": "Свет у стола",
+    "file": "table-lamp.js",
+    "code": "// Хочу, чтобы у стола был свет, если есть что нести.\n//\n// Дано:\n// - у стола лампа: <div id=\"table-lamp\" class=\"lamp\">\n// - нести есть что, если выдвинут хоть один ящик\n// - forEach всегда проходит все шесть\n//\n// Пройди циклом for…of и остановись на первом выдвинутом.\n",
+    "notes": [
+      "Цикл: for (const имя of список) { … }. Как forEach: строки в { } — для каждой вещи по очереди.",
+      "Выйти из цикла сразу: break;. Из forEach так выйти нельзя."
+    ],
+    "hints": [
+      "Над столом тёмная лампа #table-lamp. Выдвинутый ящик щуп покажет по классу open.",
+      "Пройди по ящикам for…of. Нашёлся выдвинутый — зажги лампу и break.",
+      "const lamp = document.querySelector(`#_____-____`);\nfor (const drawer __ document.querySelectorAll(`.drawer`)) {\n  if (drawer.classList.contains(`____`)) {\n    lamp.classList.add(`on`);\n    _____;\n  }\n}"
+    ],
+    "solution": "const lamp = document.querySelector(`#table-lamp`);\n\nfor (const drawer of document.querySelectorAll(`.drawer`)) {\n  if (drawer.classList.contains(`open`)) {\n    lamp.classList.add(`on`);\n    break;\n  }\n}\n"
+  },
+  {
+    "id": "archive-toggle",
+    "chapter": 3,
+    "number": "3.13",
+    "title": "В обе стороны",
+    "file": "shelf.js",
+    "code": "// Хочу, чтобы задвинутый ящик можно было выдвинуть.\n//\n// Дано:\n// - сейчас её рука ящик только задвигает\n//\n// Пусть рывок переключает: есть open — убери, нет — добавь.\n\ndocument.querySelectorAll(`.drawer`).forEach((drawer) => {\n  drawer.addEventListener(`click`, () => {\n    drawer.classList.remove(`open`);\n  });\n});\n",
+    "notes": [
+      "Переключить класс: .classList.toggle(`класс`). Нет класса — добавит, есть — уберёт."
+    ],
+    "hints": [
+      "Пусть она потянет задвинутый пустой ящик: рука дёргает, а он стоит.",
+      "Одно слово: вместо remove — метод, который умеет и то, и другое.",
+      "drawer.classList.______(`open`);"
+    ],
+    "solution": "document.querySelectorAll(`.drawer`).forEach((drawer) => {\n  drawer.addEventListener(`click`, () => {\n    drawer.classList.toggle(`open`);\n  });\n});\n"
+  },
+  {
+    "id": "corridor-log",
+    "chapter": 4,
+    "number": "4.1",
+    "title": "Что находит чужой код",
+    "file": "corridor.js",
+    "code": "// Хочу знать, какую лампу находит этот код.\n//\n// Дано:\n// - код ниже писала станция: выключатель в каждом\n//   пролёте переключает лампу\n// - лампы коридора: <div class=\"lamp\">, их три\n// - она трогает выключатель, а в коридоре темно\n//\n// Перед строкой с toggle напечатай на ленту то,\n// что находит этот querySelector.\n\ndocument.querySelectorAll(`.switch`).forEach((button) => {\n  button.addEventListener(`click`, () => {\n    document.querySelector(`.lamp`).classList.toggle(`on`);\n  });\n});\n",
+    "notes": [
+      "Напечатать на ленту: console.log(значение). Код от этого не меняется.",
+      "Чужой код не обязательно понимать целиком. Ставь console.log и смотри."
+    ],
+    "hints": [
+      "Она трогает выключатель в первом пролёте, а тут темно. Селектор в строке 14 светлый: что-то он находит, но не здесь.",
+      "Новой строкой перед toggle напечатай то же, что ищет querySelector в строке 14.",
+      "console.log(document.querySelector(`.____`));"
+    ],
+    "solution": "document.querySelectorAll(`.switch`).forEach((button) => {\n  button.addEventListener(`click`, () => {\n    console.log(document.querySelector(`.lamp`));\n    document.querySelector(`.lamp`).classList.toggle(`on`);\n  });\n});\n"
+  },
+  {
+    "id": "corridor-stop",
+    "chapter": 4,
+    "number": "4.2",
+    "title": "Стоп-кадр",
+    "file": "corridor.js",
+    "code": "// Хочу увидеть, что делает этот код, когда она трогает.\n//\n// Дано:\n// - на ленте лампа щитовой: <div id=\"lamp\" class=\"lamp on\">\n// - она трогает выключатель здесь, в коридоре\n//\n// Поставь debugger первой строкой внутри датчика.\n\ndocument.querySelectorAll(`.switch`).forEach((button) => {\n  button.addEventListener(`click`, () => {\n    console.log(document.querySelector(`.lamp`));\n    document.querySelector(`.lamp`).classList.toggle(`on`);\n  });\n});\n",
+    "notes": [
+      "Стоп: строка debugger;. Когда до неё дойдёт, мир замрёт, а щуп прочитает любое значение.",
+      "Дальше по строке — F10 или тумблер на корпусе, отпустить — F8 или рубильник. Те же клавиши в настоящем Chrome."
+    ],
+    "hints": [
+      "Всё происходит мгновенно: лента показала только итог.",
+      "Первой строкой внутри функции датчика поставь debugger;. Потом пусть она тронет выключатель.",
+      "  button.addEventListener(`click`, () => {\n    ________;"
+    ],
+    "solution": "document.querySelectorAll(`.switch`).forEach((button) => {\n  button.addEventListener(`click`, () => {\n    debugger;\n    console.log(document.querySelector(`.lamp`));\n    document.querySelector(`.lamp`).classList.toggle(`on`);\n  });\n});\n"
+  },
+  {
+    "id": "corridor-console",
+    "chapter": 4,
+    "number": "4.2a",
+    "title": "Настоящая консоль",
+    "file": "corridor.js",
+    "code": "// Хочу спросить станцию не из файла, а из браузера.\n//\n// Дано:\n// - станция — обычная страница, у браузера для неё\n//   есть свои инструменты: F12\n// - код ниже трогать и запускать не надо\n//\n// Открой F12, выбери станцию в списке над строкой ввода\n// и напечатай на ленту первую лампу станции.\n\ndocument.querySelectorAll(`.switch`).forEach((button) => {\n  button.addEventListener(`click`, () => {\n    debugger;\n    console.log(document.querySelector(`.lamp`));\n    document.querySelector(`.lamp`).classList.toggle(`on`);\n  });\n});\n",
+    "notes": [
+      "Открыть: F12. На ноутбуке бывает Fn+F12, запасной ход — Ctrl+Shift+I. Кадр может стать меньше: панель заняла место.",
+      "Вкладка Console, в русском Chrome «Консоль». Над строкой ввода список со словом top: это страница самой игры. Выбери в нём station.",
+      "Строка в Console выполняется сразу, по Enter. Если в ответ null, в списке всё ещё top."
+    ],
+    "hints": [
+      "Нажми F12. Панель откроется сбоку или снизу. Найди в ней вкладку Console.",
+      "Над строкой ввода список: top. Открой его и выбери station. Каждый запуск — новая страница, поэтому после рубильника там снова top.",
+      "В строке ввода, после >: console.log(document.querySelector(`.____`)); и Enter."
+    ],
+    "solution": "console.log(document.querySelector(`.lamp`));\n"
+  },
+  {
+    "id": "corridor-dom",
+    "chapter": 4,
+    "number": "4.2b",
+    "title": "Дерево вещей",
+    "file": "corridor.js",
+    "code": "// Хочу зажечь лампу в пролёте руками, без кода.\n//\n// Дано:\n// - пролёт: <div class=\"bay\">, лампа лежит внутри него\n// - в CSS станции лампа с классом on горит\n// - код ниже снова трогать не надо\n//\n// Найди лампу пролёта в Elements и допиши ей в class\n// ещё on.\n\ndocument.querySelectorAll(`.switch`).forEach((button) => {\n  button.addEventListener(`click`, () => {\n    debugger;\n    console.log(document.querySelector(`.lamp`));\n    document.querySelector(`.lamp`).classList.toggle(`on`);\n  });\n});\n",
+    "notes": [
+      "Вкладка Elements, в русском Chrome «Элементы»: все вещи станции деревом, кто в ком лежит. Настоящее имя вещи — элемент, всего дерева — DOM.",
+      "Дойти до вещи: напечатай её в Console, щёлкни по ней правой кнопкой, выбери Reveal in Elements panel.",
+      "Двойной щелчок по значению class — и его можно править. Enter — готово."
+    ],
+    "hints": [
+      "В списке над строкой ввода должно стоять station. Набери document.querySelector(`.bay`) и Enter: в Console появится первый пролёт.",
+      "Правой кнопкой по нему — Reveal in Elements panel, в русском Chrome «Показать на панели \"Элементы\"». Разверни пролёт стрелкой слева: внутри лампа.",
+      "Двойной щелчок по lamp в строке class=\"lamp\", допиши через пробел on, Enter. Должно стать class=\"lamp on\"."
+    ],
+    "solution": "document.querySelector(`.bay`);\n"
+  },
+  {
+    "id": "corridor-bay",
+    "chapter": 4,
+    "number": "4.3",
+    "title": "Искать в своём пролёте",
+    "file": "corridor.js",
+    "code": "// Хочу, чтобы выключатель зажигал лампу своего пролёта.\n//\n// Дано:\n// - коридор — три пролёта: <div class=\"bay\">,\n//   в каждом лампа .lamp и выключатель .switch\n// - станция — один документ, и первая .lamp в нём\n//   висит в щитовой\n// - debugger и console.log больше не нужны\n//\n// Пройди по пролётам и в каждом ищи внутри пролёта.\n\ndocument.querySelectorAll(`.switch`).forEach((button) => {\n  button.addEventListener(`click`, () => {\n    debugger;\n    console.log(document.querySelector(`.lamp`));\n    document.querySelector(`.lamp`).classList.toggle(`on`);\n  });\n});\n",
+    "notes": [
+      "Искать внутри вещи: вещь.querySelector(`.класс`). Найдётся только то, что лежит в ней.",
+      "document — вся станция. Пролёт — только пролёт."
+    ],
+    "hints": [
+      "Наведи щуп на пролёт: внутри него лампа и выключатель.",
+      "Пройди не по выключателям, а по пролётам .bay. В каждом найди выключатель внутри пролёта и повесь на него датчик. Лампу ищи тоже внутри пролёта.",
+      "document.querySelectorAll(`.___`).forEach((bay) => {\n  bay\n    .querySelector(`.______`)\n    .addEventListener(`click`, () => {\n      ___.querySelector(`.lamp`).classList.toggle(`on`);\n    });\n});"
+    ],
+    "solution": "document.querySelectorAll(`.bay`).forEach((bay) => {\n  bay\n    .querySelector(`.switch`)\n    .addEventListener(`click`, () => {\n      bay.querySelector(`.lamp`).classList.toggle(`on`);\n    });\n});\n"
+  },
+  {
+    "id": "frame-store",
+    "chapter": 4,
+    "number": "4.4",
+    "title": "Окно помнит цвет",
+    "file": "frame.js",
+    "code": "// Хочу, чтобы окно помнило цвет после рубильника.\n//\n// Дано:\n// - ниже твой frame.js из комнаты с окном\n// - рубильник даёт чистую страницу, как F5\n// - ключ для цвета: frame-color\n//\n// Сохраняй цвет на поворот ручки, ставь его при запуске.\n\nconst frame = document.querySelector(`.frame`);\n\ndocument\n  .querySelector(`#frame-picker`)\n  .addEventListener(`input`, (evt) => {\n    frame.style.backgroundColor = evt.target.value;\n  });\n",
+    "notes": [
+      "Хранилище — как ящик с подписями, подпись зовут ключом. Положить: localStorage.setItem(`ключ`, строка). Взять: localStorage.getItem(`ключ`).",
+      "Хранилище переживает рубильник и F5. Если под ключом пусто, getItem отдаёт null — «ничего»."
+    ],
+    "hints": [
+      "Она стоит у двери комнаты с окном. После рубильника свет оттуда пропадает: окно красится только на поворот.",
+      "В датчике, рядом с покраской, клади цвет в хранилище. При запуске, до датчика, ставь окну то, что лежит в хранилище.",
+      "frame.style.backgroundColor =\n  localStorage.getItem(`___________`);"
+    ],
+    "solution": "const frame = document.querySelector(`.frame`);\n\nframe.style.backgroundColor =\n  localStorage.getItem(`frame-color`);\n\ndocument\n  .querySelector(`#frame-picker`)\n  .addEventListener(`input`, (evt) => {\n    frame.style.backgroundColor = evt.target.value;\n    localStorage.setItem(`frame-color`, evt.target.value);\n  });\n"
+  },
+  {
+    "id": "frame-default",
+    "chapter": 4,
+    "number": "4.5",
+    "title": "В первый раз",
+    "file": "frame.js",
+    "code": "// Хочу, чтобы в первый раз окно горело цветом ручки.\n//\n// Дано:\n// - пока ничего не сохранено, getItem отдаёт null,\n//   и при запуске окно тёмное\n// - цвет ручки по умолчанию лежит в её value\n//\n// При запуске бери сохранённый цвет, а если его нет —\n// value ручки.\n\nconst frame = document.querySelector(`.frame`);\n\nframe.style.backgroundColor =\n  localStorage.getItem(`frame-color`);\n\ndocument\n  .querySelector(`#frame-picker`)\n  .addEventListener(`input`, (evt) => {\n    frame.style.backgroundColor = evt.target.value;\n    localStorage.setItem(`frame-color`, evt.target.value);\n  });\n",
+    "notes": [
+      "Запасное значение: а || б. Если а — falsy (null, пустая строка, 0), берётся б."
+    ],
+    "hints": [
+      "Первый запуск, хранилище пустое: проём тёмный, хотя на ручке есть цвет.",
+      "При запуске справа от = поставь сохранённый цвет, || и value ручки.",
+      "frame.style.backgroundColor =\n  localStorage.getItem(`frame-color`) __\n  document.querySelector(`#frame-picker`)._____;"
+    ],
+    "solution": "const frame = document.querySelector(`.frame`);\n\nframe.style.backgroundColor =\n  localStorage.getItem(`frame-color`) ||\n  document.querySelector(`#frame-picker`).value;\n\ndocument\n  .querySelector(`#frame-picker`)\n  .addEventListener(`input`, (evt) => {\n    frame.style.backgroundColor = evt.target.value;\n    localStorage.setItem(`frame-color`, evt.target.value);\n  });\n"
+  },
+  {
+    "id": "frame-paint",
+    "chapter": 4,
+    "number": "4.6",
+    "title": "Ручка на месте",
+    "file": "frame.js",
+    "code": "// Хочу, чтобы ручка стояла там, где её оставили.\n//\n// Дано:\n// - после рубильника окно горит сохранённым цветом,\n//   а ручка стоит на своём, по умолчанию\n// - value ручки можно не только читать, но и ставить\n//\n// Поставь ручку на сохранённый цвет, а окно крась\n// из ручки одной функцией paint: при запуске\n// и на каждый поворот.\n\nconst frame = document.querySelector(`.frame`);\n\nframe.style.backgroundColor =\n  localStorage.getItem(`frame-color`) ||\n  document.querySelector(`#frame-picker`).value;\n\ndocument\n  .querySelector(`#frame-picker`)\n  .addEventListener(`input`, (evt) => {\n    frame.style.backgroundColor = evt.target.value;\n    localStorage.setItem(`frame-color`, evt.target.value);\n  });\n",
+    "notes": [
+      "Своя функция: const имя = () => { … };. Позвать её: имя();.",
+      "Датчику функцию отдают по имени, без скобок: .addEventListener(`input`, имя).",
+      "paint берёт цвет у ручки. Поэтому сначала поставь ручку, потом зови paint."
+    ],
+    "hints": [
+      "После рубильника посмотри на ручку: стрелка на своём цвете, а окно — на сохранённом. Она тронет ручку, и окно прыгнет.",
+      "Найди ручку один раз. Поставь ей сохранённый цвет, а если пусто — её же. Покраску окна и запись вынеси в paint: позови её при запуске и отдай датчику.",
+      "const frame = document.querySelector(`.frame`);\nconst picker = document.querySelector(`#frame-picker`);\nconst _____ = () => {\n  frame.style.backgroundColor = picker.value;\n  localStorage.setItem(`frame-color`, picker.value);\n};\npicker.value =\n  localStorage.getItem(`frame-color`) || picker.value;\n_____();\npicker.addEventListener(`input`, _____);"
+    ],
+    "solution": "const frame = document.querySelector(`.frame`);\nconst picker = document.querySelector(`#frame-picker`);\n\nconst paint = () => {\n  frame.style.backgroundColor = picker.value;\n  localStorage.setItem(`frame-color`, picker.value);\n};\n\npicker.value =\n  localStorage.getItem(`frame-color`) || picker.value;\npaint();\n\npicker.addEventListener(`input`, paint);\n"
+  },
+  {
+    "id": "corridor-object",
+    "chapter": 4,
+    "number": "4.7",
+    "title": "Лампы на ленте",
+    "file": "corridor.js",
+    "code": "// Хочу видеть на ленте, какая лампа и горит ли она.\n//\n// Дано:\n// - у пролёта бирка с именем двери: data-door,\n//   это archive, frame и pumps\n//\n// На каждое касание печатай на ленту объект:\n// door — имя двери, on — горит ли лампа.\n\ndocument.querySelectorAll(`.bay`).forEach((bay) => {\n  bay\n    .querySelector(`.switch`)\n    .addEventListener(`click`, () => {\n      bay.querySelector(`.lamp`).classList.toggle(`on`);\n    });\n});\n",
+    "notes": [
+      "Объект — значения под именами: { имя: значение, другое: значение }. Между именем и значением двоеточие, между парами запятая.",
+      "Взять значение: объект.имя. Ты уже так делал: bay.dataset.door, потому что dataset — тоже объект."
+    ],
+    "hints": [
+      "Наведи щуп на пролёт: бирка data-door.",
+      "В датчике после toggle напечатай объект из двух значений: door — бирка пролёта, on — ответ contains. Лампа нужна дважды, поэтому найди её один раз, до датчика.",
+      "document.querySelectorAll(`.bay`).forEach((bay) => {\n  const lamp = bay.querySelector(`.lamp`);\n  bay\n    .querySelector(`.switch`)\n    .addEventListener(`click`, () => {\n      lamp.classList.toggle(`on`);\n      console.log({\n        door: bay.dataset.____,\n        on: lamp.classList.________(`on`),\n      });\n    });\n});"
+    ],
+    "solution": "document.querySelectorAll(`.bay`).forEach((bay) => {\n  const lamp = bay.querySelector(`.lamp`);\n\n  bay\n    .querySelector(`.switch`)\n    .addEventListener(`click`, () => {\n      lamp.classList.toggle(`on`);\n      console.log({\n        door: bay.dataset.door,\n        on: lamp.classList.contains(`on`),\n      });\n    });\n});\n"
+  },
+  {
+    "id": "corridor-lamps",
+    "chapter": 4,
+    "number": "4.7a",
+    "title": "Все лампы сразу",
+    "file": "corridor.js",
+    "code": "// Хочу видеть на ленте сразу все лампы, а не одну.\n//\n// Дано:\n// - сейчас на ленте только та лампа, которую тронули\n//\n// Заведи один объект lamps на весь коридор: под именем\n// двери клади, горит ли лампа. Печатай весь объект.\n\ndocument.querySelectorAll(`.bay`).forEach((bay) => {\n  const lamp = bay.querySelector(`.lamp`);\n\n  bay\n    .querySelector(`.switch`)\n    .addEventListener(`click`, () => {\n      lamp.classList.toggle(`on`);\n      console.log({\n        door: bay.dataset.door,\n        on: lamp.classList.contains(`on`),\n      });\n    });\n});\n",
+    "notes": [
+      "Положить под именем: объект.имя = значение. Если имя лежит в переменной — в квадратных скобках: объект[имя] = значение.",
+      "Пустой объект: {}. Заведи его один раз, до forEach."
+    ],
+    "hints": [
+      "Посмотри на ленту, пока она трогает выключатели: каждый раз одна лампа, а про прошлую ни слова.",
+      "До forEach заведи пустой объект lamps. Бирку пролёта назови door. В датчике клади под этим именем ответ contains и печатай lamps.",
+      "const lamps = __;\ndocument.querySelectorAll(`.bay`).forEach((bay) => {\n  const lamp = bay.querySelector(`.lamp`);\n  const door = bay.dataset.____;\n  bay\n    .querySelector(`.switch`)\n    .addEventListener(`click`, () => {\n      lamp.classList.toggle(`on`);\n      lamps[____] = lamp.classList.contains(`on`);\n      console.log(_____);\n    });\n});"
+    ],
+    "solution": "const lamps = {};\n\ndocument.querySelectorAll(`.bay`).forEach((bay) => {\n  const lamp = bay.querySelector(`.lamp`);\n  const door = bay.dataset.door;\n\n  bay\n    .querySelector(`.switch`)\n    .addEventListener(`click`, () => {\n      lamp.classList.toggle(`on`);\n      lamps[door] = lamp.classList.contains(`on`);\n      console.log(lamps);\n    });\n});\n"
+  },
+  {
+    "id": "corridor-json",
+    "chapter": 4,
+    "number": "4.8",
+    "title": "Лампы помнят",
+    "file": "corridor.js",
+    "code": "// Хочу, чтобы лампы коридора помнили, где горели.\n//\n// Дано:\n// - ключ для ламп: lamps\n// - хранилище держит только строки\n//\n// На каждое касание сохраняй объект ламп строкой JSON,\n// при запуске читай его и зажигай, что горело.\n\nconst lamps = {};\n\ndocument.querySelectorAll(`.bay`).forEach((bay) => {\n  const lamp = bay.querySelector(`.lamp`);\n  const door = bay.dataset.door;\n\n  bay\n    .querySelector(`.switch`)\n    .addEventListener(`click`, () => {\n      lamp.classList.toggle(`on`);\n      lamps[door] = lamp.classList.contains(`on`);\n      console.log(lamps);\n    });\n});\n",
+    "notes": [
+      "JSON — запись объекта текстом. Объект — в строку: JSON.stringify(объект). Строку — в объект: JSON.parse(строка).",
+      "Пустое хранилище: JSON.parse(null) отдаёт null. Запасное — || {}.",
+      "Если под именем ничего нет, lamps[door] отдаёт undefined. Это falsy: для if значит «нет»."
+    ],
+    "hints": [
+      "Рубильник гасит коридор: ей снова приходится трогать каждый выключатель.",
+      "В датчике вместо ленты — хранилище: объект строкой JSON под ключом lamps. При запуске — JSON.parse того, что лежит в хранилище, и в каждом пролёте: если лампа горела — add.",
+      "const lamps =\n  JSON.parse(localStorage.getItem(`_____`)) || __;"
+    ],
+    "solution": "const lamps =\n  JSON.parse(localStorage.getItem(`lamps`)) || {};\n\ndocument.querySelectorAll(`.bay`).forEach((bay) => {\n  const lamp = bay.querySelector(`.lamp`);\n  const door = bay.dataset.door;\n\n  if (lamps[door]) lamp.classList.add(`on`);\n\n  bay\n    .querySelector(`.switch`)\n    .addEventListener(`click`, () => {\n      lamp.classList.toggle(`on`);\n      lamps[door] = lamp.classList.contains(`on`);\n      localStorage.setItem(`lamps`, JSON.stringify(lamps));\n    });\n});\n"
+  },
+  {
+    "id": "corridor-catch",
+    "chapter": 4,
+    "number": "4.9",
+    "title": "Старая запись",
+    "file": "corridor.js",
+    "code": "// Хочу, чтобы старая запись не гасила коридор.\n//\n// Дано:\n// - прежняя станция хранила лампы под тем же ключом\n//   строкой: on,off,on. У кого она осталась, у того\n//   JSON.parse ломается. Станция положила её и тебе\n//\n// Не прочиталась запись — лампы по умолчанию,\n// все погашены, а ошибку напечатай на ленту.\n\nconst lamps =\n  JSON.parse(localStorage.getItem(`lamps`)) || {};\n\ndocument.querySelectorAll(`.bay`).forEach((bay) => {\n  const lamp = bay.querySelector(`.lamp`);\n  const door = bay.dataset.door;\n\n  if (lamps[door]) lamp.classList.add(`on`);\n\n  bay\n    .querySelector(`.switch`)\n    .addEventListener(`click`, () => {\n      lamp.classList.toggle(`on`);\n      lamps[door] = lamp.classList.contains(`on`);\n      localStorage.setItem(`lamps`, JSON.stringify(lamps));\n    });\n});\n",
+    "notes": [
+      "try { … } catch (error) { … }: если в try ошибка, автомат не выбит, а выполняется catch. В error — сама ошибка.",
+      "Имя, объявленное внутри { }, снаружи не видно. Заведи его до try, через let."
+    ],
+    "hints": [
+      "Запусти: автомат выбит на строке с JSON.parse, и лампы не зажигаются вовсе.",
+      "До try — let lamps = {}. В try — чтение из хранилища, в catch — ошибку на ленту.",
+      "let lamps = {};\n___ {\n  lamps = JSON.parse(localStorage.getItem(`lamps`)) || {};\n} _____ (error) {\n  console.log(_____);\n}"
+    ],
+    "solution": "let lamps = {};\n\ntry {\n  lamps = JSON.parse(localStorage.getItem(`lamps`)) || {};\n} catch (error) {\n  console.log(error);\n}\n\ndocument.querySelectorAll(`.bay`).forEach((bay) => {\n  const lamp = bay.querySelector(`.lamp`);\n  const door = bay.dataset.door;\n\n  if (lamps[door]) lamp.classList.add(`on`);\n\n  bay\n    .querySelector(`.switch`)\n    .addEventListener(`click`, () => {\n      lamp.classList.toggle(`on`);\n      lamps[door] = lamp.classList.contains(`on`);\n      localStorage.setItem(`lamps`, JSON.stringify(lamps));\n    });\n});\n"
+  },
+  {
+    "id": "exit-errors",
+    "chapter": 4,
+    "number": "4.10",
+    "title": "Три ошибки",
+    "file": "exit.js",
+    "code": "// Хочу, чтобы у двери в насосную был свет и табличка.\n//\n// Дано:\n// - над дверью табло #exit-board и лампа #exit-lamp\n// - три строки ниже набросаны наспех: в каждой ошибка\n//\n// Запускай и чини по одной. Смотри на первое слово.\n\nconst sign = document.querySelector(`#exit-board`;\nsing.textContent = `к насосной`;\ndocument.querySelector(`#exit-lam`).classList.add(`on`);\n",
+    "notes": [
+      "Первое слово ошибки — её вид. SyntaxError — рубильник не встаёт, не выполнилось ничего. ReferenceError и TypeError — во время работы, на своей строке, а всё выше уже сделано."
+    ],
+    "hints": [
+      "Запусти: рубильник отскакивает. Засечка — в строке 9.",
+      "Чини по одной и запускай после каждой: каждая починка открывает следующую ошибку.",
+      "Три места: скобка в строке 9, имя в строке 10, id в строке 11 — сравни с табличкой над дверью."
+    ],
+    "solution": "const sign = document.querySelector(`#exit-board`);\nsign.textContent = `к насосной`;\ndocument.querySelector(`#exit-lamp`).classList.add(`on`);\n"
+  }
+]

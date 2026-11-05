@@ -18,9 +18,10 @@ const setup = ({ from, to, test: judge }) => {
   const run = (seconds, status = {}) => {
     for (let t = 0; t < seconds; t += STEP) {
       check.update({
-        world: {},
+        world: { room: { present: true } },
         showDone: true,
         failed: false,
+        code: ``,
         ...status,
       });
       updateGirl(girl, STEP);

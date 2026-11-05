@@ -17,6 +17,9 @@ import {
 import { marksField, marksTheme, notchField } from "./marks.js";
 import { terminalTheme } from "./theme.js";
 
+// Сколько дать прочитать начало длинного файла.
+const READ_BRIEF = 2500;
+
 // Редактор без basicSetup: нет автоскобок, автодополнения и подчёркиваний.
 // Новичок печатает каждый символ сам. Tab — отступ в 2 пробела; набранная
 // `}` встаёт на отступ своего блока (ничего не вставляет, только сдвигает).
@@ -66,5 +69,21 @@ export const createEditor = (parent, doc, { onRun, onChange }) => {
 
   const view = new EditorView({ parent, state: stateOf(doc) });
   view.focus();
-  return { view, load: (text) => view.setState(stateOf(text)) };
+
+  // Файл длиннее стекла (видно 12 строк): сперва видно «Дано», через пару
+  // секунд экран едет к месту правки. Если уже печатают или листают, не трогаем.
+  let settle = null;
+  const load = (text) => {
+    clearTimeout(settle);
+    view.setState(stateOf(text));
+    view.scrollDOM.scrollTop = 0;
+    const loaded = view.state;
+    settle = setTimeout(() => {
+      if (view.state !== loaded || view.scrollDOM.scrollTop !== 0) return;
+      view.dispatch({
+        effects: EditorView.scrollIntoView(text.length, { y: `end` }),
+      });
+    }, READ_BRIEF);
+  };
+  return { view, load };
 };

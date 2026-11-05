@@ -56,6 +56,8 @@ export const readThing = (element, read) => {
     background: read.background(element),
     // У поля ввода — его настоящее значение (у ручки — цвет).
     value: read.value(element),
+    // Текст внутри вещи (у табло — то, что на нём написано).
+    text: read.text(element),
     rect: { x: box.x, y: box.y, width: box.width, height: box.height },
   };
 };

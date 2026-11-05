@@ -10,7 +10,7 @@ export const drawPlates = (
   things,
   { world, wires, held, flash, flicker, time },
 ) => {
-  things.forEach(({ key, plate }) => {
+  things.forEach(({ key, plate, plateClass }) => {
     const flashing =
       flash?.keys.includes(key) && time >= flash.from && time < flash.until;
     const flickering =
@@ -22,6 +22,6 @@ export const drawPlates = (
       flickering ||
       held?.has(key) ||
       wires.some((wire) => (wire.keys ?? [wire.key]).includes(key));
-    drawPlate(ctx, plate, plateText(world?.things[key]), lit);
+    drawPlate(ctx, plate, plateText(world?.things[key], plateClass), lit);
   });
 };

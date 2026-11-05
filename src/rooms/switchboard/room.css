@@ -1,8 +1,8 @@
 /* CSS станции для щитовой. Координаты — в пикселях сцены 320×180:
    iframe песочницы ровно такого размера, поэтому рамки из настоящей
    вёрстки сразу ложатся на картинку. Места лампы и двери — те же,
-   что в assets/sprites/bg-switchroom.json. Общие правила комнат —
-   в src/station.js. */
+   что в assets/sprites/bg-switchroom.json, остальные — в backdrop.js.
+   Общие правила комнат — в src/station.js. */
 .lamp {
   position: absolute;
   left: 86px;
@@ -22,4 +22,41 @@
   top: 39px;
   width: 20px;
   height: 42px;
+}
+
+/* Табло: правила общие на всю станцию. Пустое тёмное, с текстом светится. */
+.board {
+  position: absolute;
+  overflow: hidden;
+  background-color: #222325;
+}
+
+.board:not(:empty) {
+  background-color: #49607e;
+  color: #81b5f6;
+}
+
+#board {
+  left: 50px;
+  top: 27px;
+  width: 36px;
+  height: 11px;
+}
+
+/* Лампа в проёме: класс lamp тот же, поэтому и правила «горит» те же. */
+.door-lamp {
+  left: 59px;
+  top: 43px;
+  width: 5px;
+  height: 7px;
+}
+
+/* У плафона нет класса «горит»: без цвета фона он не светит. */
+.plafond {
+  position: absolute;
+  left: 66px;
+  top: 40px;
+  width: 9px;
+  height: 3px;
+  background-color: transparent;
 }

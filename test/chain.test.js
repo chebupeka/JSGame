@@ -62,11 +62,11 @@ test(`«Дано» прошлой задачи снимается, твой ко
   assert.equal(withoutBrief(`// только заметки\n`), ``);
 });
 
-test(`при входе — новое «Дано», под ним твой код`, () => {
-  const task = { file: `a.js`, code: `// Новое.\n` };
-  assert.equal(entryCode(task, {}), `// Новое.\n`);
+test(`при входе — новое «Дано», под ним твой код, а не эталон`, () => {
+  const task = { file: `a.js`, code: `// Новое.\n\netalon();\n` };
+  assert.equal(entryCode(task, {}), task.code);
   assert.equal(
-    entryCode(task, { "a.js": `// Старое.\nfoo();\n` }),
-    `// Новое.\nfoo();\n`,
+    entryCode(task, { "a.js": `// Старое.\nmine();\n` }),
+    `// Новое.\n\nmine();\n`,
   );
 });
