@@ -54,6 +54,7 @@ const native = {
   body: getter(Document.prototype, `body`),
   root: getter(Document.prototype, `documentElement`),
   appendChild: Node.prototype.appendChild,
+  setAttribute: Element.prototype.setAttribute,
   getText: getter(Node.prototype, `textContent`),
   setText: setter(Node.prototype, `textContent`),
   setHtml: setter(Element.prototype, `innerHTML`),
@@ -174,10 +175,21 @@ const buildRoom = ({ html, css }) => {
   apply(native.setHtml, apply(native.body, doc, []), [html]);
 };
 
-const start = (port, { room, things, files, view: top = 0, trace }) => {
+const start = (
+  port,
+  { room, things, files, view: top = 0, trace, patch = [], acts = [] },
+) => {
   const send = (message) => apply(native.post, port, [message]);
 
   buildRoom(room);
+  // Проверочный запуск: станция тихо меняет разметку, чтобы поймать код,
+  // который подогнали под одно значение (бирки, цвет ручки по умолчанию).
+  for (let i = 0; i < patch.length; i++) {
+    const element = apply(native.querySelector, doc, [patch[i].selector]);
+    if (element) {
+      apply(native.setAttribute, element, [patch[i].attribute, patch[i].value]);
+    }
+  }
   // Станция — все комнаты друг под другом. На экране одна: рамки вещей
   // считаются от её верха (read.rect).
   view = top;
@@ -211,7 +223,7 @@ const start = (port, { room, things, files, view: top = 0, trace }) => {
   // Только в мире на экране, в превью — никогда.
   const act = ({ key, value, event }) => {
     const element = bound[key];
-    if (!trace || !element) return;
+    if (!element) return;
     if (value !== undefined) apply(native.setInputValue, element, [value]);
     apply(native.dispatch, element, [
       new NativeEvent(event, { bubbles: true }),
@@ -223,7 +235,7 @@ const start = (port, { room, things, files, view: top = 0, trace }) => {
     `message`,
     (event) => {
       const data = apply(native.eventData, event, []);
-      if (data?.type === `act`) return act(data);
+      if (data?.type === `act`) return trace ? act(data) : undefined;
       if (data?.type !== `query`) return;
       send({
         type: `matches`,
@@ -483,6 +495,9 @@ const start = (port, { room, things, files, view: top = 0, trace }) => {
 
   const runFrom = (i) => {
     if (i >= files.length) {
+      // Вернуть мир в то состояние, в каком его оставила она: ручка на том
+      // же месте. До снимка, чтобы на экране не мелькнул тёмный мир.
+      for (let j = 0; j < acts.length; j++) act(acts[j]);
       sendSnapshot();
       send({ type: `done` });
       return;

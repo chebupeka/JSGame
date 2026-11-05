@@ -25,6 +25,8 @@ const KNOWN = [
   `style`,
   `textContent`,
   `addEventListener`,
+  `target`,
+  `value`,
   `console`,
   `log`,
 ];
@@ -263,8 +265,45 @@ const RULES = [
     }),
   },
   {
+    test: /Failed to execute '(\w+)' on '\w+': (\d+) arguments? required, but only (\d+) present/,
+    read: ([, method, needed, given]) => ({
+      fewArguments: method,
+      parts: [
+        [
+          `Failed to execute '${method}'`,
+          `браузер не смог выполнить ${method}`,
+        ],
+        [
+          `${needed} arguments required, but only ${given} present`,
+          `нужно ${needed} значения в скобках, а дано ${given}`,
+        ],
+      ],
+    }),
+  },
+  {
+    test: /Missing initializer in const declaration/,
+    read: () => ({
+      noInitializer: true,
+      parts: [
+        [`Missing initializer`, `не хватает начального значения`],
+        [`in const declaration`, `в объявлении const`],
+      ],
+    }),
+  },
+  {
+    test: /Assignment to constant variable/,
+    read: () => ({
+      constant: true,
+      parts: [
+        [`Assignment`, `присваивание, =`],
+        [`to constant variable`, `имени, которое объявлено через const`],
+      ],
+    }),
+  },
+  {
     test: /Unexpected token\s*'?([^']*)'?/,
     read: ([, token]) => ({
+      token,
       parts: [
         [
           `Unexpected token ${token}`.trim(),
@@ -346,6 +385,12 @@ const selectorAdvice = (selector, { ids, classes, labels }) => {
     : `В комнате есть \`${mark}${near}\`, у тебя \`${selector}\`.`;
 };
 
+// Имена, которые объявил сам код: const, let, функции и их параметры.
+const declared = (code) =>
+  [...code.matchAll(/\b(?:const|let|var|function)\s+([\w$]+)/g)].map(
+    ([, name]) => name,
+  );
+
 // Имя из списка, написанное с другим регистром: classlist вместо classList.
 const wrongCase = (code) => {
   for (const name of KNOWN) {
@@ -389,8 +434,17 @@ export const explainError = (error, context) => {
     if (advice) sentences.push(advice);
   } else if (facts.value === `undefined` && facts.property) {
     const left = `Слева от .${facts.property} ничего нет.`;
+    const before = code.match(
+      new RegExp(`\\.([\\w$]+)\\.${facts.property}\\b`),
+    )?.[1];
+    const near = before && closest(before, KNOWN);
     sentences.push(
-      `${left} ${wrongCase(code) ?? `Проверь, как написано имя перед ним.`}`,
+      `${left} ${
+        wrongCase(code) ??
+        (near
+          ? `Проверь, как написано имя перед ним: \`${near}\`.`
+          : `Проверь, как написано имя перед ним.`)
+      }`,
     );
   }
 
@@ -408,12 +462,14 @@ export const explainError = (error, context) => {
   }
 
   if (facts.undefinedName) {
-    const near = closest(facts.undefinedName, KNOWN);
     const word = facts.undefinedName;
+    const near = closest(word, [...KNOWN, ...declared(code)]);
     sentences.push(
-      near
-        ? `Похоже на \`${near}\`.`
-        : `Без кавычек \`${word}\` — чьё-то имя, а такого имени нет. Текст пишут в кавычках: \`${word}\`.`,
+      word === `evt`
+        ? `Функция не принимает событие: в её скобках пусто. Напиши \`(evt) =>\`.`
+        : near
+          ? `Похоже на \`${near}\`.`
+          : `Без кавычек \`${word}\` — чьё-то имя, а такого имени нет. Текст пишут в кавычках: \`${word}\`.`,
     );
   }
 
@@ -432,6 +488,32 @@ export const explainError = (error, context) => {
   if (facts.emptyToken)
     sentences.push(`В кавычках ничего нет. Напиши имя класса.`);
 
+  if (facts.fewArguments === `addEventListener`) {
+    sentences.push(
+      `Датчику нужно знать и событие, и что делать. Второе — функция.`,
+    );
+  }
+  if (facts.noInitializer) {
+    sentences.push(
+      /const\s+[\w$]+-/.test(code)
+        ? `Дефис в имени нельзя: это минус. Пиши слитно: \`frameWindow\` или просто \`frame\`.`
+        : `\`const\` сразу получает значение: \`const frame = …;\`.`,
+    );
+  }
+  if (facts.constant) {
+    sentences.push(
+      `\`const\` держит одну вещь всё время. Для другой вещи — другое имя.`,
+    );
+  }
+  // Датчик без стрелки: фигурные скобки сами по себе — не функция.
+  if (facts.token === `.` && /addEventListener\([^)]*,\s*\{/.test(code)) {
+    sentences.push(
+      `Без \`() =>\` фигурные скобки — не функция. Датчику нужна функция: \`() => { … }\`.`,
+    );
+  }
+  if (facts.token === `)` && /\(\w*\)\s*=\s*\{/.test(code)) {
+    sentences.push(`Стрелка пишется двумя знаками: \`=>\`.`);
+  }
   if (facts.privateField) {
     sentences.push(
       `Селектор — это строка, то есть текст в кавычках: \`${facts.privateField}\`.`,
@@ -457,9 +539,17 @@ export const explainError = (error, context) => {
     }
   }
 
+  const openInsert = facts.unfinished && /\$\{[^}]*$/.test(code);
+  if (openInsert) {
+    sentences.push(
+      `Вставка \`\${\` открыта и не закрыта \`}\`. Строка съела весь код до конца файла.`,
+    );
+  }
+
   // Незакрытая кавычка: её не видно глазами, поэтому о ней прямо. Русская
   // раскладка здесь — частая причина: закрывающая набралась как ё.
-  const openQuote = facts.unfinished && code.split(`\``).length % 2 === 0;
+  const openQuote =
+    !openInsert && facts.unfinished && code.split(`\``).length % 2 === 0;
   if (openQuote && /ё/i.test(code)) {
     sentences.push(
       `Кавычка не закрылась: в русской раскладке набралась ё. Русские буквы — в русской раскладке, кавычка — в английской.`,

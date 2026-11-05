@@ -21,6 +21,7 @@ const noteOf = (item) => {
 
 export const showNotes = (...items) => {
   notes.replaceChildren(...items.map(noteOf));
+  notes.scrollTop = 0;
 };
 
 // Разбор ошибки: текст браузера дословно, «строка N» (щелчок ставит туда

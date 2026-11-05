@@ -63,3 +63,15 @@ test(`окна, дверь и ручка в CSS — на своих местах
   assert.deepEqual(frameBox(`.frame-room .door`), FRAME_ROOM.doorOut);
   assert.deepEqual(frameBox(`#frame-picker`), FRAME_ROOM.knob);
 });
+
+const { SWITCHBOARD } = await import(`../src/rooms/switchboard/backdrop.js`);
+
+test(`табло, лампа в проёме и плафон в CSS — там, где их рисует код`, () => {
+  assert.deepEqual(box(`#board`), SWITCHBOARD.board);
+  assert.deepEqual({ ...box(`.door-lamp`) }, SWITCHBOARD.doorLamp);
+  assert.deepEqual(box(`.plafond`), SWITCHBOARD.plafond);
+});
+
+test(`табло у двери в CSS — над платой ручки`, () => {
+  assert.deepEqual(frameBox(`#color-board`), FRAME_ROOM.colorBoard);
+});

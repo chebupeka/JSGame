@@ -1,7 +1,7 @@
-import { blue, blueGlow, blueLight, grey } from "../../render/palette.js";
+import { blue, blueLight, grey } from "../../render/palette.js";
 import { drawGlass } from "../../render/glass.js";
 import { rect } from "../../render/pixels.js";
-import { drawStencil } from "../../render/stencil.js";
+import { drawBoard } from "../board.js";
 
 export const hasClass = (thing, name) =>
   thing?.present ? thing.className.split(/\s+/).includes(name) : false;
@@ -38,17 +38,6 @@ const drawDoorLamp = (ctx, lamp) => {
   rect(ctx, grey[1], x, y, width, height);
   rect(ctx, on ? blue : grey[3], x + 1, y + 1, width - 2, height - 2);
   if (on) rect(ctx, blueLight, x + 2, y + 2, width - 4, height - 4);
-};
-
-// Табло над дверью. Пустое тёмное; текст положил твой код — экран синий,
-// на нём светло-синие буквы. Что не влезло, срезается: overflow в CSS.
-const drawBoard = (ctx, board) => {
-  if (!visible(board)) return;
-  const { x, y, width, height } = board.rect;
-  const text = board.text ?? ``;
-  rect(ctx, grey[0], x - 1, y - 1, width + 2, height + 2);
-  rect(ctx, text ? blueGlow : grey[1], x, y, width, height);
-  if (text) drawStencil(ctx, board.rect, text, blueLight, true);
 };
 
 // Плафон в глубине тамбура: его свет — только цвет фона, который дал код.

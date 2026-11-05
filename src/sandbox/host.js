@@ -110,6 +110,7 @@ const launch = ({
 export const createSandbox = ({
   worldContainer,
   previewContainer,
+  trialContainer,
   room,
   things,
   solvedFiles,
@@ -158,13 +159,14 @@ export const createSandbox = ({
     onHang();
   };
 
-  const run = (files) => {
+  // acts — что сделать с вещами сразу после файлов (ручка на прежнем месте).
+  const run = (files, { acts = [] } = {}) => {
     world?.stop();
     world = launch({
       origin: sandboxOrigin(index),
       container: worldContainer,
       // Мир записывает, что делает код игрока, — для показа по шагам.
-      hello: { room, things, files, view: view(), trace: true },
+      hello: { room, things, files, acts, view: view(), trace: true },
       messages: {
         snapshot: ({ world }) => onSnapshot(world),
         trace: ({ event }) => onTrace(event),
@@ -187,11 +189,38 @@ export const createSandbox = ({
       setTimeout(() => waiting.delete(id) && resolve(null), QUERY_TIMEOUT);
     });
 
+  // Проверочный запуск: та же станция с немного другой разметкой, невидимо.
+  // Отвечает снимком мира, null — код завис. Новый запуск отменяет прошлый.
+  let trying = null;
+  const trial = (files, { patch = [], acts = [] } = {}) =>
+    new Promise((resolve) => {
+      trying?.cancel();
+      let latest = null;
+      const finish = (result) => {
+        trying?.stop();
+        trying = null;
+        resolve(result);
+      };
+      const running = launch({
+        origin: sandboxOrigin(index),
+        container: trialContainer,
+        hello: { room, things, files, patch, acts, view: view() },
+        messages: {
+          snapshot: ({ world: seen }) => {
+            latest = seen;
+          },
+          done: () => finish(latest),
+        },
+        onHang: () => finish(null),
+      });
+      trying = { stop: running.stop, cancel: () => finish(null) };
+    });
+
   startPreview();
   // Другое место — другие решённые файлы и другая прокрутка: превью
   // прогревается заново.
   // Действие с вещью в мире на экране (повернуть ручку). В превью — нет.
   const act = (message) => world?.post({ type: `act`, ...message });
 
-  return { run, query, act, refresh: startPreview };
+  return { run, trial, query, act, refresh: startPreview };
 };

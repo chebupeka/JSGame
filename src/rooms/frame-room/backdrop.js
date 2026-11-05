@@ -20,11 +20,20 @@ export const FRAME_ROOM = {
   knobCenter: layout.knobCenter,
   monitor: layout.monitor,
   screen: layout.screen,
+  // По экрану на файл: большой монитор на фоне и два малых рядом с ним.
+  screens: [
+    layout.screen,
+    { x: 252, y: 19, w: 10, h: 8 },
+    { x: 252, y: 30, w: 10, h: 8 },
+  ],
+  // Табло у двери — над платой ручки. Табличка прямо на нём, пока оно пустое.
+  colorBoard: { x: 212, y: 39, w: 56, h: 10 },
   floor: { top: layout.floorY, bottom: 106 },
   plates: {
     frame: layout.frameBigPlate,
     frameSmall: layout.frameSmallPlate,
     picker: layout.knobPlate,
+    colorBoard: { x: 212, y: 39, w: 56, h: 10, onThing: true },
   },
 };
 

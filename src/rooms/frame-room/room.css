@@ -30,6 +30,14 @@
   height: 42px;
 }
 
+/* Правила табло — общие со щитовой, здесь только место. */
+#color-board {
+  left: 212px;
+  top: 39px;
+  width: 56px;
+  height: 10px;
+}
+
 #frame-picker {
   position: absolute;
   left: 212px;

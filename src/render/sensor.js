@@ -38,10 +38,29 @@ export const sensorRect = ({ rect, key }, world) => {
 };
 
 // Где датчик на вещи: зажат на её верхней кромке, ближе к правому краю.
-export const sensorSpot = ({ x, y, width }) => ({
+// inside — внутри вещи: над ней что-то висит, и кромка занята (плата ручки).
+export const sensorSpot = ({ x, y, width }, inside = false) => ({
   x: Math.round(x + width - SENSOR.w - 2),
-  y: Math.max(0, Math.round(y - SENSOR.h + 3)),
+  y: inside ? Math.round(y) + 1 : Math.max(0, Math.round(y - SENSOR.h + 3)),
 });
+
+// Датчики в кадре и где каждый висит. Несколько на одной вещи — рядком,
+// а не друг на друге. things — манифест вещей места.
+export const placeSensors = (sensors, world, things) => {
+  const taken = new Map();
+  return [...sensors].flatMap((sensor) => {
+    const rect = sensorRect(sensor, world);
+    if (!rect) return [];
+    const inside = things.find(({ key }) => key === sensor.key)?.sensorInside;
+    const spot = sensorSpot(rect, inside);
+    const place = `${spot.x} ${spot.y}`;
+    const count = taken.get(place) ?? 0;
+    taken.set(place, count + 1);
+    return [
+      { sensor, spot: { x: spot.x - count * (SENSOR.w + 1), y: spot.y } },
+    ];
+  });
+};
 
 // kind: `lit` — вещь шлёт это событие, лампа горит; `dark` — событие
 // бывает, но эта вещь его не шлёт; `none` — такого события нет, гнезда нет.

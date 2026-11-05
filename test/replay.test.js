@@ -249,14 +249,22 @@ test(`шум измеряется: поиск внутри обработчик�
     replay.receive({ kind: `handled`, id: 1 });
   };
 
-  turn(true);
-  assert.equal(replay.view.finds, 1, `код новичка: один поиск на событие`);
-  assert.equal(seen.flashes.at(-1).keys[0], `frame`, `табличка вспыхнула`);
-  const flashes = seen.flashes.length;
-
   turn(false);
   assert.equal(replay.view.finds, 0, `код профи: ноль, тихо`);
-  assert.equal(seen.flashes.length, flashes, `ничего не вспыхнуло`);
+  assert.equal(seen.flashes.length, 0, `ничего не вспыхнуло`);
+
+  turn(true);
+  assert.equal(replay.view.finds, 1, `код новичка: поиск на событие`);
+  assert.deepEqual([...replay.view.foundKeys], [`frame`]);
+  assert.equal(seen.flashes.at(-1).keys[0], `frame`, `табличка вспыхнула`);
+
+  // Другое событие без поиска (она отпустила ручку) счёт не обнуляет.
+  turn(false);
+  assert.equal(replay.view.finds, 1);
+
+  replay.start({ slow: false, dip: false, marked, file: FILE }, 0);
+  assert.equal(replay.view.finds, 0, `новый запуск считает заново`);
+  assert.equal(replay.view.foundKeys.size, 0);
 });
 
 test(`зачем лесенка: в ней искрит одно звено, однострочник гаснет весь`, () => {

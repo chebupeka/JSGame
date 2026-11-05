@@ -8,7 +8,7 @@ import { pulseActive } from "../trace/replay.js";
 import { drawCorners } from "./corners.js";
 import { blueGlow, blueLight, grey, white } from "./palette.js";
 import { ditherFill, rect } from "./pixels.js";
-import { drawSensor, sensorRect, sensorSpot } from "./sensor.js";
+import { drawSensor, placeSensors } from "./sensor.js";
 
 // Дневной свет снаружи: рулонный ставень не доходит до пола, и из-под него
 // пробивается тонкая полоска света, как под дверью. Рисуется поверх всего
@@ -53,29 +53,27 @@ const drawSensors = (ctx, { ghosts, trace, place, world }, time) => {
   const live = new Set(
     [...trace.sensors.values()].map(({ key, type }) => `${key} ${type}`),
   );
-  ghosts.forEach((ghost) => {
-    if (live.has(`${ghost.key} ${ghost.type}`)) return;
-    const rect = sensorRect(ghost, world);
-    if (!rect) return;
-    drawSensor(ctx, sensorSpot(rect), {
-      kind: sensorKind(ghost.type, thingOf(place, ghost.key)),
+  const ghostly = ghosts.filter(({ key, type }) => !live.has(`${key} ${type}`));
+  placeSensors(ghostly, world, place.things).forEach(({ sensor, spot }) =>
+    drawSensor(ctx, spot, {
+      kind: sensorKind(sensor.type, thingOf(place, sensor.key)),
       state: `ghost`,
       blink: true,
-    });
-  });
+    }),
+  );
 
-  trace.sensors.forEach((sensor) => {
-    const rect = sensorRect(sensor, world);
-    if (!rect) return;
-    const impulse = trace.impulses.find(({ id }) => id === sensor.id);
-    const firing = !!impulse && !impulse.hollow;
-    drawSensor(ctx, sensorSpot(rect), {
-      kind: sensorKind(sensor.type, thingOf(place, sensor.key)),
-      // Полый импульс — обработчик ничего не изменил: датчик тускнеет.
-      state: impulse?.hollow ? `ghost` : firing ? `fire` : `wait`,
-      blink: firing || Math.floor(time / 800) % 2 === 0,
-    });
-  });
+  placeSensors(trace.sensors.values(), world, place.things).forEach(
+    ({ sensor, spot }) => {
+      const impulse = trace.impulses.find(({ id }) => id === sensor.id);
+      const firing = !!impulse && !impulse.hollow;
+      drawSensor(ctx, spot, {
+        kind: sensorKind(sensor.type, thingOf(place, sensor.key)),
+        // Полый импульс — обработчик ничего не изменил: датчик тускнеет.
+        state: impulse?.hollow ? `ghost` : firing ? `fire` : `wait`,
+        blink: firing || Math.floor(time / 800) % 2 === 0,
+      });
+    },
+  );
 };
 
 // world — последний снимок из песочницы: есть ли комната и вещи в ней.

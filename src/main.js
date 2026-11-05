@@ -3,6 +3,7 @@ import "@fontsource/jetbrains-mono/400-italic.css";
 import "@fontsource/tiny5/400.css";
 import "./style.css";
 
+import { EditorView } from "@codemirror/view";
 import { parse } from "acorn";
 
 import { distance, explainError } from "./code/errors.js";
@@ -14,7 +15,7 @@ import { loadProgress, saveProgress } from "./progress.js";
 import { glassLevel } from "./render/glass.js";
 import { GLOW_RATE, easeGlow } from "./render/glow.js";
 import { drawScene } from "./render/scene.js";
-import { SENSOR, sensorRect, sensorSpot } from "./render/sensor.js";
+import { SENSOR, placeSensors } from "./render/sensor.js";
 import { loadSprites } from "./render/sprites.js";
 import { STENCIL_FONT, plateText } from "./render/stencil.js";
 import { createSandbox } from "./sandbox/host.js";
@@ -173,6 +174,14 @@ const showError = (error) => {
   });
   if (broken) editor.dispatch({ effects: setNotch.of(positionOf(broken)) });
   refreshNotes();
+  // Файл длиннее стекла: строка с ошибкой должна быть видна, в ней весь смысл.
+  if (located.line) {
+    editor.dispatch({
+      effects: EditorView.scrollIntoView(positionOf(located), {
+        y: `nearest`,
+      }),
+    });
+  }
 };
 
 // Ошибка в мире (MECHANICS.md §3.3). SyntaxError: файл не прочитан,
@@ -233,6 +242,8 @@ const replay = createReplay({
   },
   onPulse: (rect) => sound.play(`pulse`, { pan: panOf(rect) }),
   onSound: (id, rect) => {
+    // Открыли задачу, и станция тихо поднимается заново: это не события.
+    if (settling) return;
     if (id === `crackle`) lastCrackle = performance.now();
     sound.play(id, { pan: panOf(rect) });
   },
@@ -301,6 +312,7 @@ const mine = ({ file }) => !file || file === task.file;
 const sandbox = createSandbox({
   worldContainer: document.querySelector(`#sandbox`),
   previewContainer: document.querySelector(`#preview`),
+  trialContainer: document.querySelector(`#trial`),
   room: STATION,
   things: STATION_THINGS,
   // В превью — без файла, который сейчас правится: он ещё не запущен.
@@ -712,12 +724,9 @@ canvas.addEventListener(`pointerup`, (event) => {
 const HER = `Её не ищи. Она не вещь.`;
 
 const sensorAt = (point) =>
-  [...replay.view.sensors.values()].find((sensor) => {
-    const rect = sensorRect(sensor, state.world);
-    if (!rect) return false;
-    const { x, y } = sensorSpot(rect);
-    return isInside({ x, y, w: SENSOR.w, h: SENSOR.h }, point);
-  });
+  placeSensors(replay.view.sensors.values(), state.world, place.things).find(
+    ({ spot: { x, y } }) => isInside({ x, y, w: SENSOR.w, h: SENSOR.h }, point),
+  )?.sensor;
 let metHer = false;
 let showingHer = false;
 
@@ -836,11 +845,19 @@ const open = (next) => {
   sandbox.refresh();
   settling = true;
   replay.start({ slow: false, dip: false, marked: null, file: task.file });
-  sandbox.run(stationFiles());
+  sandbox.run(stationFiles(), { acts: task.entryActs ?? [] });
   scenario = task.check({
     girl: state.girl,
     turnKnob,
     onOutcome: outcome,
+    // Проверочный запуск с немного другой разметкой: твой код, невидимо.
+    trial: ({ patch, acts }) =>
+      sandbox.trial(
+        filesFor(TASKS, task, progress.files, lastRun).map(
+          ({ name, code }) => ({ name, code: guardLoops(code) }),
+        ),
+        { patch, acts },
+      ),
   });
   scenario.enter(state.solved);
   editor.focus();
@@ -888,6 +905,8 @@ const step = (now) => {
       showDone: replay.view.finished,
       failed: state.breaker.tripped || !state.lever.closed,
       code: lastRun,
+      finds: replay.view.finds,
+      foundKeys: replay.view.foundKeys,
     });
     updateGirl(state.girl, dt);
     const rate = settings.calm ? GLOW_RATE.calm : GLOW_RATE.normal;
@@ -930,6 +949,8 @@ if (import.meta.env.DEV) {
     run,
     hurry,
     openTask: () => task,
+    tasks: TASKS,
+    progress,
     goto: (id) =>
       open(TASKS.find((each) => each.id === id || each.place.key === id)),
   });

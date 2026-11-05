@@ -1,4 +1,5 @@
 import { LAYOUTS } from "../screen/layout.js";
+import { saveProgress } from "../progress.js";
 import { SCENE } from "../screen/scale.js";
 import { briefOf } from "../tasks/chain.js";
 import { drawFloorMockup } from "./mockup.js";
@@ -42,6 +43,8 @@ export const installDevTools = ({
   hurry,
   openTask,
   goto,
+  tasks,
+  progress,
 }) => {
   checkPixels(canvas, state);
 
@@ -61,6 +64,24 @@ export const installDevTools = ({
     task: openTask,
     play,
     solve: () => play(`${briefOf(openTask().code)}${openTask().solution}`),
+    // Перепрыгнуть к задаче: всё до неё решено эталонами. Страница
+    // перезагрузится и откроется там, как после F5.
+    jump: (id) => {
+      const until = tasks.findIndex((each) => each.id === id);
+      tasks.slice(0, until).forEach(({ id: done, file, solution }) => {
+        progress.tasks[done] = true;
+        progress.files[file] = solution;
+      });
+      tasks.slice(until).forEach(({ id: open, file }) => {
+        delete progress.tasks[open];
+        delete progress.drafts[open];
+        if (!tasks.slice(0, until).some((each) => each.file === file)) {
+          delete progress.files[file];
+        }
+      });
+      saveProgress(progress);
+      location.replace(location.pathname);
+    },
     doc: () => editor.state.doc.toString(),
     notes: () => document.querySelector(`#notes`).innerText,
     // Кадры по таймеру: в скрытой вкладке requestAnimationFrame стоит,

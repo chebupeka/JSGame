@@ -2,10 +2,12 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import { createGirl, updateGirl } from "../src/girl/girl.js";
-import {
-  createScenario,
-  windowFollows,
-} from "../src/rooms/frame-room/scenario.js";
+import { knobCheck, windowFollows } from "../src/rooms/frame-room/scenario.js";
+
+const createScenario = knobCheck({
+  from: { at: [175, 92], pose: `stand` },
+  tryout: true,
+});
 
 // Её проверка на подделке мира: ручка и окно — обычные значения, поведение
 // окна задаёт сам тест. Время идёт шагами по 1/60 секунды.
@@ -133,13 +135,13 @@ test(`пока показ идёт, она не начинает`, () => {
   assert.equal(turns.length, before);
 });
 
-test(`решено — сразу сидит, и окно снова светит`, () => {
-  const { girl, scenario, run, turns, world } = setup();
+test(`решено — сразу сидит и ручку не трогает: окна вернул запуск станции`, () => {
+  const { girl, scenario, run, turns } = setup();
   scenario.enter(true);
   run(0.1);
   assert.equal(girl.mode, `sat`);
-  assert.deepEqual(turns, [`input`]);
-  assert.equal(world.things.picker.value, `#9dbfe6`);
+  assert.deepEqual(turns, []);
+  assert.equal(scenario.finished(), true);
 });
 
 test(`код поменяли, пока она шла садиться — возвращается и проверяет новый`, () => {
@@ -180,4 +182,151 @@ test(`код переписали, когда она уже сидела — в�
   run(40);
   assert.ok(turns.length > before + 10, `она крутила ручку`);
   assert.ok([`sit`, `sat`].includes(girl.mode));
+});
+
+// Варианты проверки у разных задач главы.
+const custom = (options, { onTurn, onChange } = {}) => {
+  let world = {
+    room: { present: true },
+    things: {
+      picker: { present: true, value: `#81b5f6` },
+      frame: { present: true, background: `rgba(0, 0, 0, 0)` },
+      frameSmall: { present: true, background: `rgba(0, 0, 0, 0)` },
+    },
+  };
+  const girl = createGirl([
+    [175, 92],
+    [283, 81],
+  ]);
+  const outcomes = [];
+  const check = knobCheck(options)({
+    girl,
+    turnKnob: (value, event) => {
+      // Как в игре: каждый снимок мира — новый объект.
+      world = structuredClone(world);
+      if (value !== undefined) {
+        world.things.picker.value = value;
+        onTurn?.(world, value);
+      }
+      if (event === `change`) onChange?.(world, world.things.picker.value);
+    },
+    onOutcome: (kind, note) => outcomes.push(note ?? kind),
+  });
+  const run = (seconds, status = {}) => {
+    for (let t = 0; t < seconds; t += STEP) {
+      check.update({
+        dt: STEP,
+        world,
+        sensors: new Map(),
+        showDone: true,
+        failed: false,
+        ...status,
+      });
+      updateGirl(girl, STEP);
+    }
+  };
+  return { girl, outcomes, check, run };
+};
+
+const paint = (world, value) => {
+  world.things.frame.background = rgb(value);
+};
+
+test(`с пола она встаёт, идёт к ручке, проверяет и снова садится`, () => {
+  const { girl, check, run } = custom({}, { onTurn: paint });
+  check.enter(false);
+  assert.equal(girl.mode, `sat`);
+  assert.equal(check.finished(), false);
+  check.run();
+  run(0.1);
+  assert.equal(girl.mode, `rise`);
+  run(40);
+  assert.equal(girl.mode, `sat`);
+  assert.equal(check.finished(), true);
+});
+
+test(`работает, но не то, ради чего задача: села, а задача не решена`, () => {
+  const { girl, outcomes, check, run } = custom(
+    { extra: ({ finds }) => (finds ? `Всё ещё ищут.` : null) },
+    { onTurn: paint },
+  );
+  check.enter(false);
+  check.run();
+  run(40, { finds: 1 });
+  assert.equal(girl.mode, `sat`);
+  assert.equal(check.finished(), false);
+  assert.deepEqual(outcomes, [`Всё ещё ищут.`]);
+
+  check.run();
+  run(40, { finds: 0 });
+  assert.equal(check.finished(), true);
+});
+
+test(`отпускает на каждом положении, и окошко ждёт change`, () => {
+  const onChange = (world, value) => {
+    world.things.frameSmall.background = rgb(value);
+  };
+  const { check, run, outcomes } = custom(
+    {
+      release: true,
+      follows: ({ things: { frameSmall } }, value) =>
+        windowFollows(frameSmall, value),
+      holds: (world, before) =>
+        world.things.frameSmall.background ===
+        before.things.frameSmall.background,
+    },
+    { onChange },
+  );
+  check.enter(false);
+  check.run();
+  run(40);
+  assert.deepEqual(outcomes, []);
+  assert.equal(check.finished(), true);
+});
+
+test(`окошко поменялось, пока она не отпустила: останавливается и говорит`, () => {
+  const { girl, check, run, outcomes } = custom(
+    {
+      release: true,
+      follows: ({ things: { frameSmall } }, value) =>
+        windowFollows(frameSmall, value),
+      holds: (world, before) =>
+        world.things.frameSmall.background ===
+        before.things.frameSmall.background,
+      judge: () => `Окошко меняется.`,
+    },
+    {
+      onTurn: (world, value) => {
+        world.things.frameSmall.background = rgb(value);
+      },
+    },
+  );
+  check.enter(false);
+  check.run();
+  run(40);
+  assert.deepEqual(outcomes, [`Окошко меняется.`]);
+  assert.equal(girl.mode, `wait`);
+  assert.equal(check.finished(), false);
+});
+
+test(`подходит посмотреть на каждом положении и возвращается к ручке`, () => {
+  const AT = [240, 88];
+  const visited = [];
+  const { girl, check, run } = custom(
+    {
+      release: true,
+      visit: AT,
+      follows: (world, value) => {
+        visited.push(girl.path[1][0]);
+        return world.things.frame.background === rgb(value);
+      },
+    },
+    { onChange: paint },
+  );
+  check.enter(false);
+  check.run();
+  run(60);
+  assert.equal(check.finished(), true);
+  assert.ok(visited.every((x) => x === AT[0]));
+  assert.ok(visited.length >= 3);
 });

@@ -1,3 +1,5 @@
+import { blueLight } from "./palette.js";
+import { rect } from "./pixels.js";
 import { drawPlate, plateText } from "./stencil.js";
 
 // Таблички вещей: настоящий id или класс. Горят, если вещь находит
@@ -5,6 +7,13 @@ import { drawPlate, plateText } from "./stencil.js";
 // когда её селектор вставили Ctrl+кликом или её нашёл поиск в показе.
 // Селектор с опечаткой — табличка похожей вещи тихо мерцает: вот что на
 // ней выбито на самом деле.
+const drawFrame = (ctx, { x, y, width, height }) => {
+  rect(ctx, blueLight, x - 1, y - 1, width + 2, 1);
+  rect(ctx, blueLight, x - 1, y + height, width + 2, 1);
+  rect(ctx, blueLight, x - 1, y, 1, height);
+  rect(ctx, blueLight, x + width, y, 1, height);
+};
+
 export const drawPlates = (
   ctx,
   things,
@@ -22,6 +31,13 @@ export const drawPlates = (
       flickering ||
       held?.has(key) ||
       wires.some((wire) => (wire.keys ?? [wire.key]).includes(key));
-    drawPlate(ctx, plate, plateText(world?.things[key], plateClass), lit);
+    const thing = world?.things[key];
+    // Табличка прямо на пустом табло. Появился текст — табличку закрыл он,
+    // а горит теперь рамка самого табло.
+    if (plate.onThing && thing?.text) {
+      if (lit) drawFrame(ctx, thing.rect);
+      return;
+    }
+    drawPlate(ctx, plate, plateText(thing, plateClass), lit);
   });
 };

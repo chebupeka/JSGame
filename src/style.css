@@ -93,7 +93,10 @@ body {
 /* Поля: щелчок — следующая подсказка. Длинный код в подсказке
    переносится где угодно, а не уезжает за край. */
 #notes {
-  overflow: hidden;
+  /* Разбор ошибки бывает длиннее полей, а главная фраза в нём — последняя. */
+  overflow: hidden auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--comment) transparent;
   overflow-wrap: anywhere;
   color: var(--comment);
   font-style: italic;
@@ -103,7 +106,7 @@ body {
 }
 
 #notes p {
-  margin: 0 0 calc(var(--notes-line) * var(--u) * 1px);
+  margin: 0 0 calc(var(--notes-line) * 0.5 * var(--u) * 1px);
 }
 
 /* Текст браузера и HTML под щупом — как в консоли, прямым мелом. */
@@ -122,7 +125,7 @@ body {
 }
 
 #notes .parts {
-  margin: 0 0 calc(var(--notes-line) * var(--u) * 1px);
+  margin: 0 0 calc(var(--notes-line) * 0.5 * var(--u) * 1px);
   padding: 0;
   list-style: none;
 }
