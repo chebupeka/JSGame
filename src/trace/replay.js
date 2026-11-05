@@ -68,6 +68,8 @@ export const createReplay = ({
     flashes: new Map(),
     dip: 0,
     slow: false,
+    // Показ этого запуска кончился: всё записанное показано.
+    finished: false,
   };
   let show = null;
 
@@ -151,13 +153,21 @@ export const createReplay = ({
     const thin = begin - (show.lastEvent ?? -Infinity) < FREQUENT;
     show.lastEvent = begin;
     sensor.value = event.value;
-    view.impulses.push({ id: sensor.id, start: begin, thin });
+    const impulse = { id: sensor.id, start: begin, thin };
+    view.impulses.push(impulse);
+    show.answer = { impulse, changed: false };
     if (sensor.once) sensor.gone = begin + IMPULSE;
     onSound(`tick`, sensor.rect);
   };
 
   const play = (item, begin) => {
     if (item.kind === `world` || item.kind === `change`) onWorld(item.world);
+    if (item.kind === `change` && show.answer) show.answer.changed = true;
+    // Обработчик кончился, а в мире ничего не изменилось: импульс полый.
+    if ((item.kind === `handled` || item.kind === `fault`) && show.answer) {
+      show.answer.impulse.hollow = !show.answer.changed;
+      show.answer = null;
+    }
     if (item.kind === `step`) light(item.n, begin);
     if (item.kind === `find`) find(item, begin);
     if (item.kind === `listen`) listen(item, begin);
@@ -189,6 +199,7 @@ export const createReplay = ({
     view.slow = false;
     if (show.wasSlow && show.stepped) onSlowShown();
     show.finished = true;
+    view.finished = true;
     onFinish();
   };
 
@@ -257,6 +268,7 @@ export const createReplay = ({
       view.flashes.clear();
       view.dip = 0;
       view.slow = slow;
+      view.finished = false;
     },
 
     // Сообщение песочницы: снимок мира, шаг записи, ошибка или конец.

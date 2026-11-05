@@ -36,6 +36,7 @@ export const installDevTools = ({
   canvas,
   editor,
   sandbox,
+  step,
   goto,
 }) => {
   checkPixels(canvas, state);
@@ -46,6 +47,9 @@ export const installDevTools = ({
     state,
     render,
     goto,
+    // Кадры по таймеру: в скрытой вкладке requestAnimationFrame стоит,
+    // а проверять сценарий настоящим временем всё равно нужно.
+    pump: () => setInterval(() => step(performance.now()), 16),
     query: sandbox.query,
     setCode: (code) =>
       editor.dispatch({

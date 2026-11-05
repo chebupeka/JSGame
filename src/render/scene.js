@@ -67,10 +67,12 @@ const drawSensors = (ctx, { ghosts, trace, place, world }, time) => {
   trace.sensors.forEach((sensor) => {
     const rect = sensorRect(sensor, world);
     if (!rect) return;
-    const firing = trace.impulses.some(({ id }) => id === sensor.id);
+    const impulse = trace.impulses.find(({ id }) => id === sensor.id);
+    const firing = !!impulse && !impulse.hollow;
     drawSensor(ctx, sensorSpot(rect), {
       kind: sensorKind(sensor.type, thingOf(place, sensor.key)),
-      state: firing ? `fire` : `wait`,
+      // Полый импульс — обработчик ничего не изменил: датчик тускнеет.
+      state: impulse?.hollow ? `ghost` : firing ? `fire` : `wait`,
       blink: firing || Math.floor(time / 800) % 2 === 0,
     });
   });
@@ -90,6 +92,7 @@ export const drawScene = (ctx, state, time) => {
     roomPresent,
     wires,
     flash: state.flash,
+    flicker: state.flicker,
     // Вещи, которые держит переменная: их табличка горит и после показа.
     held: new Set(trace.kept.flatMap(({ keys }) => keys)),
     time,

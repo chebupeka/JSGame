@@ -44,6 +44,8 @@ export const SWITCHBOARD_PLACE = {
 
   // Ей нужно одно: свет. Лампа горит — она идёт.
   ready: (world) => !!world?.room.present && hasClass(world.things.lamp, `on`),
+  // Перестала пробовать: прошла в дверь.
+  finished: ({ mode }) => mode === `gone`,
 
   draw: (ctx, view) => {
     const { world, sprites, roomPresent, solved } = view;

@@ -6,6 +6,7 @@ import { FRAME_ROOM, drawFrameRoom } from "./backdrop.js";
 import css from "./room.css?raw";
 import html from "./room.html?raw";
 import { drawKnob, knobAt, knobTurn } from "./knob.js";
+import { createScenario } from "./scenario.js";
 
 // Место 2 — комната с фальш-окном, утро (глава 2). Окно на дальней стене
 // светит только тем, что сделал код; ручка — настоящий <input type="color">.
@@ -72,8 +73,11 @@ export const FRAME_PLACE = {
   // Ручку крутят мышью: от тёмного к светлому.
   knob: { key: `picker`, center: knobCenter, at: knobAt, turn: knobTurn },
 
-  // Её проверка окна — этап 15. Пока она стоит у ставня.
+  // Здесь ей командует сценарий: она сама пробует ручку и проверяет код.
+  createScenario,
   ready: () => false,
+  // Перестала пробовать: села в свет окна.
+  finished: ({ mode }) => mode === `sit` || mode === `sat`,
 
   draw: (ctx, view) => {
     const { world, sprites, roomPresent, solved, glow } = view;

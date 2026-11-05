@@ -226,6 +226,18 @@ export const VOICES = {
     if (audio.hum) glide(audio.hum.gain, 0, at + 0.02, 0.03);
   },
 
+  // Ручка: мелкие сухие щелчки, пока её крутят.
+  knob: (audio, { at, pan }) => {
+    burst(audio, panned(audio, pan), {
+      at,
+      length: 0.005,
+      type: `bandpass`,
+      frequency: 2400,
+      q: 3,
+      gain: 0.06,
+    });
+  },
+
   // Датчик защёлкнулся на вещи: короткий металлический клац.
   clamp: (audio, { at, pan }) => {
     const out = panned(audio, pan);

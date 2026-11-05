@@ -5,7 +5,7 @@ import "./style.css";
 
 import { parse } from "acorn";
 
-import { explainError } from "./code/errors.js";
+import { distance, explainError } from "./code/errors.js";
 import { guardLoops, instrument } from "./code/instrument.js";
 import { createLivePreview } from "./code/live.js";
 import { findQueries } from "./code/preview.js";
@@ -127,8 +127,8 @@ const positionOf = ({ line, column }) => {
 // «похоже на» по настоящим именам в комнате. Щелчок по «строка N» ставит
 // туда курсор, у SyntaxError в коде засечка.
 const showError = (error) => {
-  const place = isSyntax(error) ? syntaxPlace(lastRun) : null;
-  const located = place ? { ...error, ...place } : error;
+  const broken = isSyntax(error) ? syntaxPlace(lastRun) : null;
+  const located = broken ? { ...error, ...broken } : error;
   const typed = findQueries(lastRun)
     .filter(({ status }) => status === `check`)
     .map(({ selector }) => selector);
@@ -138,6 +138,21 @@ const showError = (error) => {
     ...STATION_NAMES,
   });
 
+  // Опечатка в селекторе: табличка похожей вещи тихо мерцает несколько
+  // секунд — вот что на ней выбито на самом деле.
+  const lookalike = place.things.find(({ key }) => {
+    const text = plateText(state.world?.things[key]);
+    return (
+      text && typed.some((word) => word !== text && distance(word, text) <= 2)
+    );
+  });
+  if (lookalike) {
+    state.flicker = {
+      key: lookalike.key,
+      until: performance.now() + 4000,
+    };
+  }
+
   state.notes = errorNotes(explained, () => {
     editor.dispatch({
       selection: { anchor: positionOf(located) },
@@ -145,7 +160,7 @@ const showError = (error) => {
     });
     editor.focus();
   });
-  if (place) editor.dispatch({ effects: setNotch.of(positionOf(place)) });
+  if (broken) editor.dispatch({ effects: setNotch.of(positionOf(broken)) });
   refreshNotes();
 };
 
@@ -242,6 +257,8 @@ state.trace = replay.view;
 // Разметка последнего запуска: столбцы ошибок и мест вызова в размеченном
 // коде правее твоих, map() возвращает их назад.
 let marked = null;
+// Сценарий места: она сама пробует вещи. В щитовой его нет.
+let scenario = null;
 const unmark = (place) =>
   marked && place.file === task.file && place.column
     ? { ...place, column: marked.map(place.line, place.column) }
@@ -312,7 +329,9 @@ const run = ({ slow = false } = {}) => {
   state.breaker.tripped = false;
   state.world = null;
   state.notes = null;
-  if (!state.solved) resetGirl(state.girl);
+  state.flicker = null;
+  if (scenario) scenario.run();
+  else if (!state.solved) resetGirl(state.girl);
   refreshNotes();
   lastRun = editor.state.doc.toString();
   marked = instrument(lastRun);
@@ -332,6 +351,7 @@ const run = ({ slow = false } = {}) => {
 // файл уезжает на монитор на стене и работает там дальше. Несколько
 // секунд игра ничего не предлагает — можно просто смотреть.
 const succeed = () => {
+  scenario?.solve();
   state.solved = lastRun;
   progress.solved[task.file] = lastRun;
   saveProgress(progress);
@@ -557,20 +577,20 @@ canvas.addEventListener(`pointerdown`, (event) => {
 // руки; отпустил — change. Не чаще раза в кадр: каждое событие — снимок.
 let turning = null;
 const turnTo = (point, force = false) => {
-  const { key, at, turn, center } = place.knob;
+  const { at, turn, center } = place.knob;
   const value = turn(at(point, center));
   const now = performance.now();
   if (value === turning.value || (!force && now - turning.sent < 16)) return;
 
   turning.value = value;
   turning.sent = now;
-  sandbox.act({ key, value, event: `input` });
+  turnKnob(value, `input`);
 };
 
 canvas.addEventListener(`pointerup`, (event) => {
   if (!turning) return;
   turnTo(toScene(event), true);
-  sandbox.act({ key: place.knob.key, event: `change` });
+  turnKnob(undefined, `change`);
   turning = null;
 });
 
@@ -632,6 +652,36 @@ canvas.addEventListener(`pointerleave`, () => {
   unhover();
 });
 
+// Рука на ручке — её или твоя: настоящее значение и настоящее событие.
+// Щелчки ручки — не чаще, чем слышно.
+let lastClick = 0;
+const turnKnob = (value, event) => {
+  sandbox.act({ key: place.knob.key, value, event });
+  const now = performance.now();
+  if (now - lastClick < 70) return;
+  lastClick = now;
+  sound.play(`knob`, { pan: panOf(state.world?.things[place.knob.key]?.rect) });
+};
+
+// Чем кончилась её проверка. Разбор ошибки на полях не перебиваем.
+const SILENT = `Самые неприятные ошибки — молчаливые. Проверь щупом, что на самом деле пришло.`;
+const outcome = (kind) => {
+  // «Пока ничего. Так и надо» было про время до её пробы: теперь она
+  // попробовала, и это уже неправда. Разбор ошибки остаётся.
+  const waiting = state.notes?.[0] === task.waiting;
+  if (state.notes && !waiting) return;
+
+  state.notes = null;
+  if (kind === `almost` && task.almost) {
+    state.notes = [task.almost];
+  } else if (kind === `silent` && !progress.waited.silent) {
+    progress.waited.silent = true;
+    saveProgress(progress);
+    state.notes = [SILENT];
+  }
+  refreshNotes();
+};
+
 // Вход в место: его задача в терминале, она у ставня, станция с уже
 // решёнными файлами. Решено и это место — она уже ушла, файл на мониторе.
 const enter = (next) => {
@@ -648,7 +698,8 @@ const enter = (next) => {
   state.lever.closed = false;
   state.breaker.tripped = false;
   resetGirl(state.girl, next.path);
-  if (state.solved) state.girl.mode = `gone`;
+  if (state.solved && !next.createScenario) state.girl.mode = `gone`;
+  state.flicker = null;
 
   nameplate.textContent = task.file;
   loadCode(progress.drafts[task.file] ?? task.code);
@@ -660,6 +711,13 @@ const enter = (next) => {
   sandbox.refresh();
   replay.start({ slow: false, dip: false, marked: null, file: task.file });
   sandbox.run(stationFiles());
+  scenario =
+    next.createScenario?.({
+      girl: state.girl,
+      turnKnob,
+      onOutcome: outcome,
+    }) ?? null;
+  scenario?.enter(!!state.solved);
   editor.focus();
 };
 
@@ -685,15 +743,22 @@ enter(place);
 
 const shownote = document.querySelector(`#shownote`);
 let last = performance.now();
-const tick = (now) => {
+const step = (now) => {
   const ready = place.ready(state.world);
-  const before = state.girl.mode;
+  const wasDone = place.finished(state.girl);
   // Код занят — мир застыл: она посреди шага, импульсы на месте.
   const frozen = state.stalled !== null;
 
   if (!frozen) {
     const dt = Math.min(0.1, (now - last) / 1000);
     replay.update(now);
+    scenario?.update({
+      dt,
+      world: state.world,
+      sensors: replay.view.sensors,
+      showDone: replay.view.finished,
+      failed: state.breaker.tripped || !state.lever.closed,
+    });
     updateGirl(state.girl, { ready }, dt);
     const rate = settings.calm ? GLOW_RATE.calm : GLOW_RATE.normal;
     (place.glows ?? []).forEach((key) => {
@@ -704,11 +769,13 @@ const tick = (now) => {
   }
   state.calm = settings.calm;
   shownote.hidden = !replay.view.slow;
-  const left = before !== `gone` && state.girl.mode === `gone`;
-  if (left && !state.solved) succeed();
+  if (!wasDone && place.finished(state.girl) && !state.solved) succeed();
   last = now;
   state.dim = Math.max(dimAt(now), state.transition ? transitionDim(now) : 0);
   render(frozen ? state.stalled : now);
+};
+const tick = (now) => {
+  step(now);
   requestAnimationFrame(tick);
 };
 requestAnimationFrame(tick);
@@ -722,6 +789,7 @@ if (import.meta.env.DEV) {
     canvas,
     editor,
     sandbox,
+    step,
     goto: (key) => enter(PLACES.find((each) => each.key === key)),
   });
 }
