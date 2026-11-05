@@ -83,6 +83,46 @@ export const drawStencil = (ctx, box, text, color, clip = false) => {
   });
 };
 
+// Текст в несколько строк: не влез в ширину — перенос по словам, как в
+// настоящей вещи. Строки считает рендер, высоту строки держит шрифт.
+const LINE = 7;
+
+export const stencilLines = (text, width) => {
+  const lines = [];
+  text
+    .trim()
+    .split(/\s+/)
+    .forEach((word) => {
+      const last = lines.at(-1);
+      const joined = last === undefined ? word : `${last} ${word}`;
+      if (last === undefined || rasterize(joined).width > width - 2) {
+        lines.push(word);
+      } else {
+        lines[lines.length - 1] = joined;
+      }
+    });
+  return lines;
+};
+
+export const drawWrapped = (ctx, box, text, color) => {
+  const width = box.w ?? box.width;
+  const height = box.h ?? box.height;
+  const lines = stencilLines(text, width).slice(
+    0,
+    Math.max(1, Math.floor(height / LINE)),
+  );
+  const top = box.y + Math.floor((height - lines.length * LINE) / 2);
+  lines.forEach((line, index) =>
+    drawStencil(
+      ctx,
+      { x: box.x, y: top + index * LINE, w: width, h: LINE },
+      line,
+      color,
+      true,
+    ),
+  );
+};
+
 // Табличка горит светло-синим, когда селектор в коде её нашёл. Площадка
 // со slot — со своей тёмной подложкой.
 export const drawPlate = (ctx, plate, text, lit) => {

@@ -28,11 +28,11 @@ export const drawMonitor = (ctx, screen, code) => {
   });
 };
 
-// По монитору на файл. Первый нарисован на фоне комнаты, у остальных
+// По монитору на файл. Большой нарисован на фоне комнаты, у малых (mini)
 // корпус рисует код: тёмный экран в рамке ждёт своего файла.
 export const drawMonitors = (ctx, screens, codes) => {
   screens.forEach((screen, index) => {
-    if (index > 0) {
+    if (screen.mini) {
       const { x, y, w, h } = screen;
       rect(ctx, grey[0], x - 1, y - 1, w + 2, h + 2);
       rect(ctx, grey[3], x - 1, y + h + 1, w + 2, 1);

@@ -1,6 +1,6 @@
 import { blueGlow, blueLight, grey } from "../render/palette.js";
 import { rect } from "../render/pixels.js";
-import { drawStencil } from "../render/stencil.js";
+import { drawWrapped } from "../render/stencil.js";
 
 // Табло. Правила общие на всю станцию: пустое тёмное; текст положил твой
 // код — экран синий, на нём светло-синие буквы. Что не влезло, срезается:
@@ -11,5 +11,5 @@ export const drawBoard = (ctx, board) => {
   const text = board.text ?? ``;
   rect(ctx, grey[0], x - 1, y - 1, width + 2, height + 2);
   rect(ctx, text ? blueGlow : grey[1], x, y, width, height);
-  if (text) drawStencil(ctx, board.rect, text, blueLight, true);
+  if (text) drawWrapped(ctx, board.rect, text, blueLight);
 };

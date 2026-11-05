@@ -1,9 +1,10 @@
+import { ARCHIVE_PLACE } from "./rooms/archive/place.js";
 import { FRAME_PLACE } from "./rooms/frame-room/place.js";
 import { SWITCHBOARD_PLACE } from "./rooms/switchboard/place.js";
 
 // Места станции по порядку дня (MECHANICS.md §7). Место — комната, её
 // вещи и задачи главы.
-export const PLACES = [SWITCHBOARD_PLACE, FRAME_PLACE];
+export const PLACES = [SWITCHBOARD_PLACE, FRAME_PLACE, ARCHIVE_PLACE];
 
 // Все задачи подряд. Каждая знает своё место.
 export const TASKS = PLACES.flatMap((place) =>

@@ -1,6 +1,6 @@
-import { blueLight } from "./palette.js";
+import { blueLight, grey } from "./palette.js";
 import { rect } from "./pixels.js";
-import { drawPlate, plateText } from "./stencil.js";
+import { drawPlate, drawStencil, plateText } from "./stencil.js";
 
 // Таблички вещей: настоящий id или класс. Горят, если вещь находит
 // набранный селектор или её держит переменная после запуска, и вспыхивают,
@@ -32,6 +32,23 @@ export const drawPlates = (
       held?.has(key) ||
       wires.some((wire) => (wire.keys ?? [wire.key]).includes(key));
     const thing = world?.things[key];
+    // Трафарет на самой вещи: едет вместе с ней.
+    if (plate.follow) {
+      if (!thing?.present) return;
+      const { x, y, w, h } = plate.follow;
+      drawStencil(
+        ctx,
+        {
+          x: Math.round(thing.rect.x) + x,
+          y: Math.round(thing.rect.y) + y,
+          w,
+          h,
+        },
+        plate.label,
+        lit ? blueLight : grey[4],
+      );
+      return;
+    }
     // Табличка прямо на пустом табло. Появился текст — табличку закрыл он,
     // а горит теперь рамка самого табло.
     if (plate.onThing && thing?.text) {

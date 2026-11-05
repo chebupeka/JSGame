@@ -45,21 +45,39 @@ export const sensorSpot = ({ x, y, width }, inside = false) => ({
 });
 
 // Датчики в кадре и где каждый висит. Несколько на одной вещи — рядком,
-// а не друг на друге. things — манифест вещей места.
-export const placeSensors = (sensors, world, things) => {
+// а не друг на друге. things — манифест вещей места. Датчики решённых файлов
+// (не openFile) уже знакомы: от них остаётся только лампа, зажим рисовать
+// незачем, иначе на полке с шестью ящиками их не сосчитать.
+export const placeSensors = (sensors, world, things, openFile = null) => {
   const taken = new Map();
+  const small = new Map();
   return [...sensors].flatMap((sensor) => {
     const rect = sensorRect(sensor, world);
     if (!rect) return [];
     const inside = things.find(({ key }) => key === sensor.key)?.sensorInside;
     const spot = sensorSpot(rect, inside);
     const place = `${spot.x} ${spot.y}`;
-    const count = taken.get(place) ?? 0;
-    taken.set(place, count + 1);
+    const tiny = !!openFile && !!sensor.file && sensor.file !== openFile;
+    const counts = tiny ? small : taken;
+    const count = counts.get(place) ?? 0;
+    counts.set(place, count + 1);
     return [
-      { sensor, spot: { x: spot.x - count * (SENSOR.w + 1), y: spot.y } },
+      {
+        sensor,
+        tiny,
+        spot: tiny
+          ? { x: spot.x + SENSOR.w - 2 - count * 3, y: spot.y + 5 }
+          : { x: spot.x - count * (SENSOR.w + 1), y: spot.y },
+      },
     ];
   });
+};
+
+// Лампа датчика решённого файла: две точки на вещи.
+export const drawSensorLamp = (ctx, { x, y }, firing) => {
+  const color = firing ? blueLight : blue;
+  dot(ctx, color, x, y);
+  dot(ctx, color, x + 1, y);
 };
 
 // kind: `lit` — вещь шлёт это событие, лампа горит; `dark` — событие

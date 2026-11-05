@@ -38,9 +38,9 @@ export const snapshotCheck =
 
     const tryAgain = (code) => {
       const mine = ++ticket;
-      trial({ patch: again.patch }).then((world) => {
+      trial({ patch: again.patch }).then((result) => {
         if (mine !== ticket) return;
-        const verdict = world ? again.test(world, { code }) : false;
+        const verdict = result ? again.test(result.world, { code }) : false;
         if (verdict === true) leave();
         else tell(verdict);
       });

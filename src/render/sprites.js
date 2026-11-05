@@ -1,11 +1,15 @@
+import archiveUrl from "../../assets/sprites/bg-archive.png";
 import frameRoomUrl from "../../assets/sprites/bg-frame-room.png";
 import backgroundUrl from "../../assets/sprites/bg-switchroom.png";
 import breakerUrl from "../../assets/sprites/breaker.png";
+import drawerUrl from "../../assets/sprites/drawer.png";
 import frameBigUrl from "../../assets/sprites/frame-big.png";
 import frameSmallUrl from "../../assets/sprites/frame-small.png";
 import knobUrl from "../../assets/sprites/knob.png";
 import lampUrl from "../../assets/sprites/lamp.png";
 import leverUrl from "../../assets/sprites/lever.png";
+import shelfUrl from "../../assets/sprites/shelf.png";
+import tableUrl from "../../assets/sprites/table.png";
 import terminalUrl from "../../assets/sprites/terminal.png";
 import { blueGlow, grey } from "./palette.js";
 
@@ -91,8 +95,16 @@ const loadFrameRoom = async () => {
   return { background, frameBig, frameSmall, knob };
 };
 
+// Архив: фон, полка, ящики и стол.
+const loadArchive = async () => {
+  const [background, shelf, drawer, table] = await Promise.all(
+    [archiveUrl, shelfUrl, drawerUrl, tableUrl].map(load),
+  );
+  return { background, shelf, drawer, table };
+};
+
 export const loadSprites = async () => {
-  const [background, lamp, terminal, lever, breaker, girl, frameRoom] =
+  const [background, lamp, terminal, lever, breaker, girl, frameRoom, archive] =
     await Promise.all([
       load(backgroundUrl),
       load(lampUrl),
@@ -101,8 +113,18 @@ export const loadSprites = async () => {
       load(breakerUrl),
       loadGirl(),
       loadFrameRoom(),
+      loadArchive(),
     ]);
-  return { background, lamp, terminal, lever, breaker, girl, frameRoom };
+  return {
+    background,
+    lamp,
+    terminal,
+    lever,
+    breaker,
+    girl,
+    frameRoom,
+    archive,
+  };
 };
 
 export const drawSprite = (ctx, image, x, y) =>

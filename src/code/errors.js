@@ -27,6 +27,11 @@ const KNOWN = [
   `addEventListener`,
   `target`,
   `value`,
+  `forEach`,
+  `dataset`,
+  `Number`,
+  `break`,
+  `return`,
   `console`,
   `log`,
 ];
@@ -291,6 +296,38 @@ const RULES = [
     }),
   },
   {
+    test: /Malformed arrow function parameter list/,
+    read: () => ({
+      malformedArrow: true,
+      parts: [
+        [`Malformed`, `собрано неправильно`],
+        [
+          `arrow function parameter list`,
+          `то, что функция-стрелка принимает в скобках`,
+        ],
+      ],
+    }),
+  },
+  {
+    test: /Illegal (return|break) statement/,
+    read: ([, word]) => ({
+      illegal: word,
+      parts: [
+        [`Illegal ${word} statement`, `${word} в месте, где он запрещён`],
+      ],
+    }),
+  },
+  {
+    test: /Cannot access '([^']+)' before initialization/,
+    read: ([, name]) => ({
+      tooEarly: name,
+      parts: [
+        [`Cannot access '${name}'`, `к ${name} обратились`],
+        [`before initialization`, `раньше, чем у него появилось значение`],
+      ],
+    }),
+  },
+  {
     test: /Assignment to constant variable/,
     read: () => ({
       constant: true,
@@ -438,14 +475,26 @@ export const explainError = (error, context) => {
       new RegExp(`\\.([\\w$]+)\\.${facts.property}\\b`),
     )?.[1];
     const near = before && closest(before, KNOWN);
-    sentences.push(
-      `${left} ${
-        wrongCase(code) ??
-        (near
-          ? `Проверь, как написано имя перед ним: \`${near}\`.`
-          : `Проверь, как написано имя перед ним.`)
-      }`,
-    );
+    if (/querySelectorAll\([^)]*\)\s*\.classList/.test(code)) {
+      sentences.push(
+        `У списка нет \`classList\`: он есть у каждой вещи в нём. Пройди по списку \`forEach\`.`,
+      );
+    } else if (/\.data\.\w/.test(code)) {
+      sentences.push(`Бирки лежат в \`dataset\`.`);
+    } else if (/\bfor\s*\([^)]*\bin\b/.test(code)) {
+      sentences.push(
+        `\`in\` перебирает номера, а не вещи: здесь пришло \`"0"\`. Нужен \`of\`.`,
+      );
+    } else {
+      sentences.push(
+        `${left} ${
+          wrongCase(code) ??
+          (near
+            ? `Проверь, как написано имя перед ним: \`${near}\`.`
+            : `Проверь, как написано имя перед ним.`)
+        }`,
+      );
+    }
   }
 
   if (facts.method) {
@@ -464,12 +513,19 @@ export const explainError = (error, context) => {
   if (facts.undefinedName) {
     const word = facts.undefinedName;
     const near = closest(word, [...KNOWN, ...declared(code)]);
+    const taken = (name) => new RegExp(`\\b${name}\\b`).test(code);
     sentences.push(
-      word === `evt`
-        ? `Функция не принимает событие: в её скобках пусто. Напиши \`(evt) =>\`.`
-        : near
-          ? `Похоже на \`${near}\`.`
-          : `Без кавычек \`${word}\` — чьё-то имя, а такого имени нет. Текст пишут в кавычках: \`${word}\`.`,
+      new RegExp(`\\bfor\\s*\\(\\s*${word}\\s+of\\b`).test(code)
+        ? `На каждый круг нужно имя: \`for (const ${word} of …)\`.`
+        : new RegExp(`dataset\\.\\w+-${word}\\b`).test(code)
+          ? `Дефис — это минус: \`dataset.data\` минус \`${word}\`. Без \`data-\`: \`dataset.${word}\`.`
+          : declared(code).includes(word)
+            ? `Имя, объявленное внутри { }, снаружи не видно. Заведи его раньше, снаружи.`
+            : /\(\)\s*=>/.test(code) && taken(`${word}\\.`)
+              ? `Функция ничего не принимает: в её скобках пусто. Напиши \`(${word}) =>\`.`
+              : near
+                ? `Похоже на \`${near}\`.`
+                : `Без кавычек \`${word}\` — чьё-то имя, а такого имени нет. Текст пишут в кавычках: \`${word}\`.`,
     );
   }
 
@@ -502,8 +558,79 @@ export const explainError = (error, context) => {
   }
   if (facts.constant) {
     sentences.push(
-      `\`const\` держит одну вещь всё время. Для другой вещи — другое имя.`,
+      `\`const\` держит одно значение всё время. Для другой вещи — другое имя, а для счёта, который меняется, — \`let\`.`,
     );
+  }
+  if (facts.malformedArrow) {
+    sentences.push(
+      `Скобка закрылась раньше функции. Имя — в своих скобках: \`forEach((drawer) => {\`.`,
+    );
+  }
+  if (facts.illegal === `return`) {
+    sentences.push(
+      /\bfor\s*\(/.test(code)
+        ? `\`return\` выходит из функции, а здесь функции нет, здесь цикл. Из цикла выходят \`break\`.`
+        : `\`return\` — выход из функции, а здесь функции нет. Ставь его внутрь функции.`,
+    );
+  }
+  if (facts.illegal === `break`) {
+    sentences.push(
+      `\`break\` работает только в цикле. Из функции \`forEach\` так не выйти.`,
+    );
+  }
+  if (facts.tooEarly) {
+    sentences.push(
+      `Внутри { } завелось второе имя \`${facts.tooEarly}\`, и его самого ещё нет. Прибавляй к прежнему, без \`let\`.`,
+    );
+  }
+  // Что значит незнакомое слово или знак там, где его быть не может.
+  const conditionWithout = /\bif\s+[^(\s]/.test(code);
+  if (facts.strayWord === `and`) {
+    sentences.push(`«И» пишут двумя знаками: \`&&\`.`);
+  } else if (/\bnot\s+\w/.test(code) && facts.strayWord) {
+    sentences.push(`В JS «не» пишут знаком: \`!\`.`);
+  } else if (facts.strayWord && conditionWithout) {
+    sentences.push(`Условие пишут в круглых скобках: \`if (…)\`.`);
+  }
+  if (facts.token === `=` && code.includes(`!===`)) {
+    sentences.push(`Не равно — три знака: \`!==\`.`);
+  }
+  if (facts.token === `!`) {
+    sentences.push(`\`!\` ставят в начало: \`!drawer.classList.contains(…)\`.`);
+  }
+  if (facts.token === `&&`) {
+    sentences.push(
+      `Скобка \`if (\` закрылась после первой части. Всё условие — в одних скобках.`,
+    );
+  }
+  if (facts.token === `else`) {
+    sentences.push(
+      /\}\s*;\s*else/.test(code)
+        ? `Точка с запятой закончила \`if\`, и \`else\` остался один. Между \`}\` и \`else\` её не ставят.`
+        : `\`else\` — последняя ветка, у него нет условия. \`else if\` ставь до него.`,
+    );
+  }
+  if (facts.token === `{`) {
+    const opened = (code.match(/\(/g) ?? []).length;
+    const closed = (code.match(/\)/g) ?? []).length;
+    if (/\belseif\b/.test(code)) {
+      sentences.push(
+        `\`else if\` — два слова через пробел. Слитно \`elseif\` — просто незнакомое имя.`,
+      );
+    } else if (/\belse\s*\(/.test(code)) {
+      sentences.push(
+        `У \`else\` нет условия: он и так значит «во всех остальных случаях». Нужно условие — \`else if\`.`,
+      );
+    } else if (opened > closed) {
+      sentences.push(
+        `Открыто больше скобок, чем закрыто: у \`(\` нет своей \`)\`.`,
+      );
+    }
+  }
+  if (facts.token === `)`) {
+    const opened = (code.match(/\{/g) ?? []).length;
+    const closed = (code.match(/\}/g) ?? []).length;
+    if (opened > closed) sentences.push(`У \`{\` нет пары \`}\`.`);
   }
   // Датчик без стрелки: фигурные скобки сами по себе — не функция.
   if (facts.token === `.` && /addEventListener\([^)]*,\s*\{/.test(code)) {

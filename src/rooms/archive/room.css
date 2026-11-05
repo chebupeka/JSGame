@@ -1,0 +1,94 @@
+/* CSS станции для архива. Координаты — в пикселях сцены 320×180, те же, что
+   в backdrop.js и assets/sprites/bg-archive.json. Правила ламп и табло —
+   общие со щитовой. */
+#shelf-lamp {
+  left: 50px;
+  top: 15px;
+}
+
+#table-lamp {
+  left: 231px;
+  top: 12px;
+}
+
+#tag-board {
+  left: 76px;
+  top: 22px;
+  width: 56px;
+  height: 10px;
+}
+
+#table-board {
+  left: 210px;
+  top: 40px;
+  width: 56px;
+  height: 20px;
+}
+
+.shelf {
+  position: absolute;
+  left: 42px;
+  top: 37px;
+  width: 98px;
+  height: 43px;
+}
+
+.drawer {
+  position: absolute;
+  top: 11px;
+  width: 14px;
+  height: 22px;
+  transition: transform 0.2s;
+}
+
+.drawer:nth-child(1) {
+  left: 2px;
+}
+
+.drawer:nth-child(2) {
+  left: 18px;
+}
+
+.drawer:nth-child(3) {
+  left: 34px;
+}
+
+.drawer:nth-child(4) {
+  left: 50px;
+}
+
+.drawer:nth-child(5) {
+  left: 66px;
+}
+
+.drawer:nth-child(6) {
+  left: 82px;
+}
+
+.drawer.open {
+  transform: translateY(4px);
+}
+
+/* Запертый с классом open не выезжает, а дребезжит. */
+.drawer.locked.open {
+  transform: none;
+  animation: rattle 0.15s 3;
+}
+
+@keyframes rattle {
+  25% {
+    transform: translateX(-1px);
+  }
+
+  75% {
+    transform: translateX(1px);
+  }
+}
+
+.handle {
+  position: absolute;
+  left: 3px;
+  top: 11px;
+  width: 8px;
+  height: 3px;
+}

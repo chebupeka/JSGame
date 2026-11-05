@@ -25,6 +25,11 @@ export const createGirl = (path) => ({
   then: null,
   // Кадр «крутить» (ставит сценарий) и когда начала садиться.
   turn: 0,
+  // Скорость: в архиве она ходит вдоль полки, и ждать её долго незачем.
+  speed: SPEED,
+  // Несёт находку и сколько находок уже на столе.
+  carrying: false,
+  onTable: 0,
   clock: 0,
   sitAt: 0,
 });
@@ -102,7 +107,7 @@ export const updateGirl = (girl, dt) => {
 
   const [[fromX, fromFeet], [toX, toFeet]] = girl.path;
   const distance = Math.max(1, Math.hypot(toX - fromX, toFeet - fromFeet));
-  girl.progress = Math.min(1, girl.progress + (SPEED * dt) / distance);
+  girl.progress = Math.min(1, girl.progress + (girl.speed * dt) / distance);
   if (girl.progress < 1) return;
   if (girl.then === `sit`) sitDown(girl);
   else girl.mode = girl.then ?? `gone`;
@@ -123,6 +128,14 @@ export const drawSilhouette = (
   rect(ctx, color, x, top + 6, 14, height - 12);
   rect(ctx, color, x + 2 - step, feet - 6, 4, 6);
   rect(ctx, color, x + 8 + step, feet - 6, 4, 6);
+};
+
+// Находка у неё в руках: светлая коробочка на уровне пояса.
+export const drawCarried = (ctx, girl) => {
+  if (!girl.carrying || girl.mode === `gone`) return;
+  const { feetX, feetY } = feetOf(girl);
+  rect(ctx, grey[4], feetX - 2, feetY - 21, 5, 4);
+  rect(ctx, grey[1], feetX - 2, feetY - 18, 5, 1);
 };
 
 // Кадр листа так, чтобы ноги встали в точку (feetX, feetY).

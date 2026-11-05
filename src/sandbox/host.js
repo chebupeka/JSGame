@@ -190,12 +190,14 @@ export const createSandbox = ({
     });
 
   // Проверочный запуск: та же станция с немного другой разметкой, невидимо.
-  // Отвечает снимком мира, null — код завис. Новый запуск отменяет прошлый.
+  // Отвечает снимком мира в конце и снимком после каждого действия; null —
+  // код завис. Новый запуск отменяет прошлый.
   let trying = null;
   const trial = (files, { patch = [], acts = [] } = {}) =>
     new Promise((resolve) => {
       trying?.cancel();
       let latest = null;
+      const acted = [];
       const finish = (result) => {
         trying?.stop();
         trying = null;
@@ -209,7 +211,8 @@ export const createSandbox = ({
           snapshot: ({ world: seen }) => {
             latest = seen;
           },
-          done: () => finish(latest),
+          acted: ({ world: seen }) => acted.push(seen),
+          done: () => finish({ world: latest, acted }),
         },
         onHang: () => finish(null),
       });

@@ -1,4 +1,4 @@
-import { drawGirl } from "../girl/girl.js";
+import { drawCarried, drawGirl } from "../girl/girl.js";
 import { SCENE } from "../screen/scale.js";
 import { drawTerminalBody } from "../terminal/body.js";
 import { drawEdges } from "../terminal/edges.js";
@@ -8,7 +8,7 @@ import { pulseActive } from "../trace/replay.js";
 import { drawCorners } from "./corners.js";
 import { blueGlow, blueLight, grey, white } from "./palette.js";
 import { ditherFill, rect } from "./pixels.js";
-import { drawSensor, placeSensors } from "./sensor.js";
+import { drawSensor, drawSensorLamp, placeSensors } from "./sensor.js";
 
 // Дневной свет снаружи: рулонный ставень не доходит до пола, и из-под него
 // пробивается тонкая полоска света, как под дверью. Рисуется поверх всего
@@ -49,7 +49,7 @@ const drawFound = (ctx, { wires, trace, world }, time) => {
 
 const thingOf = (place, key) => place.things.find((thing) => thing.key === key);
 
-const drawSensors = (ctx, { ghosts, trace, place, world }, time) => {
+const drawSensors = (ctx, { ghosts, trace, place, world, openFile }, time) => {
   const live = new Set(
     [...trace.sensors.values()].map(({ key, type }) => `${key} ${type}`),
   );
@@ -62,10 +62,11 @@ const drawSensors = (ctx, { ghosts, trace, place, world }, time) => {
     }),
   );
 
-  placeSensors(trace.sensors.values(), world, place.things).forEach(
-    ({ sensor, spot }) => {
+  placeSensors(trace.sensors.values(), world, place.things, openFile).forEach(
+    ({ sensor, spot, tiny }) => {
       const impulse = trace.impulses.find(({ id }) => id === sensor.id);
       const firing = !!impulse && !impulse.hollow;
+      if (tiny) return drawSensorLamp(ctx, spot, firing);
       drawSensor(ctx, spot, {
         kind: sensorKind(sensor.type, thingOf(place, sensor.key)),
         // Полый импульс — обработчик ничего не изменил: датчик тускнеет.
@@ -95,6 +96,7 @@ export const drawScene = (ctx, state, time) => {
     held: new Set(trace.kept.flatMap(({ keys }) => keys)),
     time,
     monitors: state.monitors,
+    girl,
     glow: state.glow,
   });
   if (roomPresent) {
@@ -108,6 +110,7 @@ export const drawScene = (ctx, state, time) => {
   drawDaylight(ctx, place.layout.shutter);
   overlays.forEach((draw) => draw(ctx, layout));
   drawGirl(ctx, girl, time, sprites?.girl);
+  drawCarried(ctx, girl);
   // Свет в комнате проседает: первый медленный показ, ошибка, сторож.
   const dim = Math.max(trace.dip * (state.calm ? 0.4 : 1), state.dim ?? 0);
   ditherFill(ctx, grey[0], dim, 0, 0, SCENE.width, SCENE.height);

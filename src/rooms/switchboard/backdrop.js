@@ -5,7 +5,7 @@ import { rect } from "../../render/pixels.js";
 // Щитовая: фон от Codex (assets/sprites/bg-switchroom.png) и места на нём,
 // измеренные по картинке (bg-switchroom.json). Вещи в room.css стоят там же —
 // это проверяет test/room.test.js. Табло, лампу в проёме и плафон рисует код.
-const MINI = { y: 24, w: 10, h: 8 };
+const MINI = { y: 24, w: 10, h: 8, mini: true };
 
 export const SWITCHBOARD = {
   door: layout.door,

@@ -71,6 +71,9 @@ export const createReplay = ({
     slow: false,
     // Показ этого запуска кончился: всё записанное показано.
     finished: false,
+    // Сколько раз последнее событие поменяло страницу: две записи подряд
+    // на табло — мигание, а не одна правда.
+    writes: 0,
     // Поиски твоего кода на события с этого запуска: сколько и какие вещи.
     // 0 — код нашёл вещь заранее, тихо. Чисел на экране нет.
     finds: 0,
@@ -170,6 +173,7 @@ export const createReplay = ({
     sensor.value = event.value;
     const impulse = { id: sensor.id, start: begin, thin };
     view.impulses.push(impulse);
+    view.writes = 0;
     show.answer = { impulse, changed: false };
     if (sensor.once) sensor.gone = begin + IMPULSE;
     onSound(`tick`, sensor.rect);
@@ -177,7 +181,10 @@ export const createReplay = ({
 
   const play = (item, begin) => {
     if (item.kind === `world` || item.kind === `change`) onWorld(item.world);
-    if (item.kind === `change` && show.answer) show.answer.changed = true;
+    if (item.kind === `change` && show.answer) {
+      show.answer.changed = true;
+      view.writes += 1;
+    }
     // Обработчик кончился, а в мире ничего не изменилось: импульс полый.
     if ((item.kind === `handled` || item.kind === `fault`) && show.answer) {
       show.answer.impulse.hollow = !show.answer.changed;

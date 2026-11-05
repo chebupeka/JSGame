@@ -65,6 +65,7 @@ test(`окна, дверь и ручка в CSS — на своих местах
 });
 
 const { SWITCHBOARD } = await import(`../src/rooms/switchboard/backdrop.js`);
+const { ARCHIVE } = await import(`../src/rooms/archive/backdrop.js`);
 
 test(`табло, лампа в проёме и плафон в CSS — там, где их рисует код`, () => {
   assert.deepEqual(box(`#board`), SWITCHBOARD.board);
@@ -74,4 +75,52 @@ test(`табло, лампа в проёме и плафон в CSS — там, 
 
 test(`табло у двери в CSS — над платой ручки`, () => {
   assert.deepEqual(frameBox(`#color-board`), FRAME_ROOM.colorBoard);
+});
+
+const archiveCss = readFileSync(
+  new URL(`../src/rooms/archive/room.css`, import.meta.url),
+  `utf8`,
+);
+
+const archiveBox = (selector) => {
+  const at = archiveCss.indexOf(`${selector} {`);
+  const block = archiveCss.slice(at, archiveCss.indexOf(`}`, at));
+  const value = (name) =>
+    Number(block.match(new RegExp(`${name}:\\s*(\\d+)px`))?.[1]);
+  return {
+    x: value(`left`),
+    y: value(`top`),
+    w: value(`width`),
+    h: value(`height`),
+  };
+};
+
+test(`полка и табло архива в CSS — там, где их рисует игра`, () => {
+  assert.deepEqual(archiveBox(`.shelf`), ARCHIVE.shelf);
+  assert.deepEqual(archiveBox(`#tag-board`), ARCHIVE.tagBoard);
+  assert.deepEqual(archiveBox(`#table-board`), ARCHIVE.tableBoard);
+});
+
+test(`ящики стоят по своим гнёздам на полке`, () => {
+  const { top, width, height } = {
+    top: Number(archiveCss.match(/\.drawer \{[^}]*top: (\d+)px/)[1]),
+    width: Number(archiveCss.match(/\.drawer \{[^}]*width: (\d+)px/)[1]),
+    height: Number(archiveCss.match(/\.drawer \{[^}]*height: (\d+)px/)[1]),
+  };
+  [1, 2, 3, 4, 5, 6].forEach((n) => {
+    const left = Number(
+      archiveCss.match(
+        new RegExp(`nth-child\\(${n}\\) \\{\\s*left: (\\d+)px`),
+      )[1],
+    );
+    assert.deepEqual(
+      {
+        x: ARCHIVE.shelf.x + left,
+        y: ARCHIVE.shelf.y + top,
+        w: width,
+        h: height,
+      },
+      ARCHIVE.drawer(n),
+    );
+  });
 });

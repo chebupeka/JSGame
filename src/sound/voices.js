@@ -241,6 +241,18 @@ export const VOICES = {
     );
   },
 
+  // Ящик: глухой деревянный стук.
+  drawer: (audio, { at, pan }) => {
+    burst(audio, panned(audio, pan), {
+      at,
+      length: 0.05,
+      type: `lowpass`,
+      frequency: 420,
+      q: 1,
+      gain: 0.22,
+    });
+  },
+
   // Ручка: мелкие сухие щелчки, пока её крутят.
   knob: (audio, { at, pan }) => {
     burst(audio, panned(audio, pan), {

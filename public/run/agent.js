@@ -55,6 +55,7 @@ const native = {
   root: getter(Document.prototype, `documentElement`),
   appendChild: Node.prototype.appendChild,
   setAttribute: Element.prototype.setAttribute,
+  click: HTMLElement.prototype.click,
   getText: getter(Node.prototype, `textContent`),
   setText: setter(Node.prototype, `textContent`),
   setHtml: setter(Element.prototype, `innerHTML`),
@@ -221,13 +222,20 @@ const start = (
   // Действие игры с вещью — как руками: ручку повернули мышью или её
   // крутит она. Значение ставит настоящий сеттер, событие — настоящее.
   // Только в мире на экране, в превью — никогда.
-  const act = ({ key, value, event }) => {
-    const element = bound[key];
+  const act = ({ key, selector, value, event }) => {
+    const element = key
+      ? bound[key]
+      : apply(native.querySelector, doc, [selector]);
     if (!element) return;
     if (value !== undefined) apply(native.setInputValue, element, [value]);
-    apply(native.dispatch, element, [
-      new NativeEvent(event, { bubbles: true }),
-    ]);
+    // Щелчок — настоящий click(): он доходит и до родителей.
+    if (event === `click`) {
+      apply(native.click, element, []);
+    } else {
+      apply(native.dispatch, element, [
+        new NativeEvent(event, { bubbles: true }),
+      ]);
+    }
     scheduleSnapshot();
   };
 
@@ -497,7 +505,10 @@ const start = (
     if (i >= files.length) {
       // Вернуть мир в то состояние, в каком его оставила она: ручка на том
       // же месте. До снимка, чтобы на экране не мелькнул тёмный мир.
-      for (let j = 0; j < acts.length; j++) act(acts[j]);
+      for (let j = 0; j < acts.length; j++) {
+        act(acts[j]);
+        send({ type: `acted`, world: world() });
+      }
       sendSnapshot();
       send({ type: `done` });
       return;

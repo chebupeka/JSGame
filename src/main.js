@@ -815,6 +815,7 @@ const open = (next) => {
   task = next;
   place = next.place;
   state.place = place;
+  state.openFile = task.file;
   state.solved = !!progress.tasks[task.id];
   state.monitors = monitorsOf(place.tasks, progress.files);
   state.wires = [];
@@ -829,6 +830,7 @@ const open = (next) => {
     state.world = null;
     state.glow = {};
     resetGirl(state.girl, place.path);
+    if (place.walkSpeed) state.girl.speed = place.walkSpeed;
   }
 
   nameplate.textContent = task.file;
@@ -845,10 +847,23 @@ const open = (next) => {
   sandbox.refresh();
   settling = true;
   replay.start({ slow: false, dip: false, marked: null, file: task.file });
-  sandbox.run(stationFiles(), { acts: task.entryActs ?? [] });
+  // Файл, который писала станция, работает с самого входа.
+  sandbox.run(
+    stationFiles(
+      task.stationCode && !state.solved
+        ? (progress.files[task.file] ?? task.code)
+        : null,
+    ),
+    { acts: task.entryActs ?? [] },
+  );
   scenario = task.check({
     girl: state.girl,
     turnKnob,
+    act: sandbox.act,
+    onSound: (id, rect) =>
+      sound.play(id, {
+        pan: panOf(rect && { x: rect.x, width: rect.w ?? rect.width }),
+      }),
     onOutcome: outcome,
     // Проверочный запуск с немного другой разметкой: твой код, невидимо.
     trial: ({ patch, acts }) =>
@@ -907,6 +922,7 @@ const step = (now) => {
       code: lastRun,
       finds: replay.view.finds,
       foundKeys: replay.view.foundKeys,
+      writes: replay.view.writes,
     });
     updateGirl(state.girl, dt);
     const rate = settings.calm ? GLOW_RATE.calm : GLOW_RATE.normal;

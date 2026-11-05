@@ -265,3 +265,95 @@ test(`текст браузера остаётся дословным`, () => {
   const text = `TypeError: Cannot read properties of null (reading 'classList')`;
   assert.equal(explain(text).text, text);
 });
+
+for (const [text, code, phrase] of [
+  [
+    `TypeError: Cannot read properties of undefined (reading 'add')`,
+    `document.querySelectorAll(\`.drawer\`).classList.add(\`open\`);`,
+    /У списка нет `classList`/,
+  ],
+  [
+    `ReferenceError: drawer is not defined`,
+    `q.forEach(() => { drawer.classList.add(\`open\`); });`,
+    /Напиши `\(drawer\) =>`/,
+  ],
+  [
+    `ReferenceError: drawer is not defined`,
+    `for (drawer of list) {}`,
+    /for \(const drawer of/,
+  ],
+  [
+    `SyntaxError: Malformed arrow function parameter list`,
+    `q.forEach(drawer) => {`,
+    /Скобка закрылась раньше функции/,
+  ],
+  [
+    `SyntaxError: Unexpected identifier 'drawer'`,
+    `if drawer.dataset.count !== \`0\` {`,
+    /Условие пишут в круглых скобках/,
+  ],
+  [`SyntaxError: Unexpected token '='`, `a !=== b`, /три знака/],
+  [`SyntaxError: Unexpected token '!'`, `a.!contains()`, /ставят в начало/],
+  [`SyntaxError: Unexpected token '&&'`, `if (a) && (b) {`, /в одних скобках/],
+  [
+    `SyntaxError: Unexpected identifier 'and'`,
+    `if (a and b) {`,
+    /двумя знаками/,
+  ],
+  [
+    `SyntaxError: Unexpected identifier 'drawer'`,
+    `if (not drawer.ok) {`,
+    /«не» пишут знаком/,
+  ],
+  [
+    `SyntaxError: Unexpected token 'else'`,
+    `if (a) {}; else {}`,
+    /Точка с запятой/,
+  ],
+  [`SyntaxError: Unexpected token '{'`, `} elseif (a) {`, /два слова/],
+  [`SyntaxError: Unexpected token '{'`, `} else (a) {`, /У `else` нет условия/],
+  [`SyntaxError: Illegal return statement`, `return;`, /выход из функции/],
+  [
+    `SyntaxError: Illegal return statement`,
+    `for (const a of b) { return; }`,
+    /Из цикла выходят `break`/,
+  ],
+  [
+    `SyntaxError: Illegal break statement`,
+    `a.forEach(() => { break; });`,
+    /только в цикле/,
+  ],
+  [
+    `ReferenceError: Cannot access 'full' before initialization`,
+    `let full = full + 1;`,
+    /второе имя `full`/,
+  ],
+  [
+    `ReferenceError: count is not defined`,
+    `drawer.dataset.data-count`,
+    /Без `data-`/,
+  ],
+  [
+    `TypeError: Cannot read properties of undefined (reading 'count')`,
+    `drawer.data.count`,
+    /Бирки лежат в `dataset`/,
+  ],
+  [
+    `ReferenceError: full is not defined`,
+    `a.forEach(() => { let full = 0; }); b = full;`,
+    /снаружи не видно/,
+  ],
+  [
+    `TypeError: Cannot read properties of undefined (reading 'contains')`,
+    `for (const d in list) { d.classList.contains(1); }`,
+    /перебирает номера/,
+  ],
+]) {
+  test(`глава 3: ${text.slice(0, 50)} — ${code.slice(0, 24)}`, () => {
+    const { sentences } = explain(text, { code });
+    assert.ok(
+      sentences.some((sentence) => phrase.test(sentence)),
+      sentences.join(` | `),
+    );
+  });
+}
