@@ -33,6 +33,7 @@ import {
   viewOf,
 } from "./station.js";
 import { createEditor } from "./terminal/editor.js";
+import { formatCode } from "./terminal/format.js";
 import { isInside } from "./terminal/lever.js";
 import { setNotch } from "./terminal/marks.js";
 import { errorNotes, rawNote, showNotes } from "./terminal/notes.js";
@@ -40,6 +41,8 @@ import { SELECTOR_MARKS, WORDS } from "./terminal/words.js";
 import { createReplay } from "./trace/replay.js";
 
 const SMALL = `Разверни окно или нажми F11.`;
+const ALIGNED = `Prettier ничего не поменял. Значит, код уже выглядит так, как его отформатировал бы инструмент профи.`;
+const UNREADABLE = `Prettier не смог прочитать этот код: в нём ошибка. Запусти — браузер скажет, где.`;
 const HANG = `Код не закончился и за секунду. Похоже на бесконечный цикл. Станция перезапущена, можно запускать снова.`;
 const HALT = `Цикл крутился без передышки дольше секунды, и сторож его прервал. Похоже на бесконечный цикл: станет ли его условие когда-нибудь ложным?`;
 const UNKNOWN = `Узнаем при запуске. Заранее тут честно не сказать: селектор собирается на ходу, ищет не от document или код выше меняет страницу.`;
@@ -525,6 +528,47 @@ addEventListener(`keydown`, (event) => {
   run({ slow: event.shiftKey });
 });
 
+// Shift+Alt+F и тумблер «выровнять»: Prettier раскладывает код как у профи.
+// Клавишу ловим по её месту на клавиатуре, а не по букве, поэтому она
+// работает и в русской раскладке. Правка одна — Ctrl+Z возвращает всё.
+const align = async () => {
+  state.aligned = performance.now() + 300;
+  const source = editor.state.doc.toString();
+  const { head } = editor.state.selection.main;
+  const { code, cursorOffset, changed, broken } = await formatCode(
+    source,
+    head,
+  );
+  // Пока грузился Prettier, код могли поменять: тогда не трогаем.
+  if (editor.state.doc.toString() !== source) return;
+
+  if (changed) {
+    editor.dispatch({
+      changes: { from: 0, to: source.length, insert: code },
+      selection: { anchor: cursorOffset },
+    });
+  }
+  // Что вышло, говорят поля. Лесенка из длинной строки — честная пометка.
+  const wasLong = source.split(`\n`).some((line) => line.length > 60);
+  if (broken) state.notes = [UNREADABLE];
+  else if (!changed) state.notes = [ALIGNED];
+  else if (wasLong && task.ladder) state.notes = [task.ladder];
+  else return editor.focus();
+  refreshNotes();
+  editor.focus();
+};
+
+addEventListener(
+  `keydown`,
+  (event) => {
+    if (event.code !== `KeyF` || !event.altKey || !event.shiftKey) return;
+    event.preventDefault();
+    event.stopPropagation();
+    align();
+  },
+  { capture: true },
+);
+
 // Любая клавиша пропускает медленный показ. Сама клавиша работает как
 // обычно: буква печатается. Ctrl+Enter не в счёт — запуск и так
 // начинает показ заново.
@@ -558,6 +602,12 @@ const thingAt = (point) =>
 
 canvas.addEventListener(`pointerdown`, (event) => {
   const point = toScene(event);
+
+  if (isInside(state.layout.align, point)) {
+    event.preventDefault();
+    align();
+    return;
+  }
 
   const lever = isInside(state.layout.lever, point);
   const slow = isInside(state.layout.slow, point);
@@ -630,7 +680,9 @@ canvas.addEventListener(`pointermove`, (event) => {
   if (turning) return turnTo(point);
   const found = thingAt(point);
   const onSwitch =
-    isInside(state.layout.lever, point) || isInside(state.layout.slow, point);
+    isInside(state.layout.lever, point) ||
+    isInside(state.layout.slow, point) ||
+    isInside(state.layout.align, point);
   state.probe = found?.[0] ?? null;
   canvas.style.cursor = onSwitch || found ? `pointer` : ``;
 

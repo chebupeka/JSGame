@@ -35,9 +35,10 @@ export const drawBreaker = (ctx, { x, y, w, h }, tripped, sheet) => {
   ctx.drawImage(sheet, tripped ? w : 0, 0, w, h, x, y, w, h);
 };
 
-// Тумблер медленного повтора под рубильником — видимый двойник
-// Shift+Ctrl+Enter. Пока идёт медленный показ, он опущен и горит.
-export const drawSlowToggle = (ctx, { x, y, w, h }, active) => {
+// Тумблер под рубильником — видимый двойник сочетания клавиш: медленный
+// повтор (Shift+Ctrl+Enter) и «выровнять» (Shift+Alt+F). Пока он делает
+// своё дело, он опущен и горит.
+export const drawToggle = (ctx, { x, y, w, h }, active) => {
   rect(ctx, grey[0], x, y, w, h);
   rect(ctx, grey[2], x + 1, y + 1, w - 2, h - 2);
 

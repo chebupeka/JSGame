@@ -22,10 +22,10 @@
     "@lezer/highlight": "^1.2.5",
     "acorn": "^8.19.0",
     "acorn-loose": "^8.5.2",
-    "acorn-walk": "^8.3.5"
+    "acorn-walk": "^8.3.5",
+    "prettier": "3.9.10"
   },
   "devDependencies": {
-    "prettier": "3.9.10",
     "vite": "^8.3.5"
   }
 }

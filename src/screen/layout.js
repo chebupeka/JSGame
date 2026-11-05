@@ -24,6 +24,8 @@ export const LAYOUTS = {
     breaker: { x: 252, y: 126, w: 10, h: 14 },
     slow: { x: 233, y: 157, w: 10, h: 7 },
     slowplate: { x: 223, y: 165, w: 30, h: 5 },
+    align: { x: 268, y: 157, w: 10, h: 7 },
+    alignplate: { x: 258, y: 165, w: 30, h: 5 },
     floor: { y: 78, h: 28 },
     gutter: 7,
     codeFont: 3.5,
@@ -51,6 +53,8 @@ export const LAYOUTS = {
     breaker: { x: 216, y: 140, w: 10, h: 14 },
     slow: { x: 197, y: 168, w: 10, h: 6 },
     slowplate: { x: 189, y: 174, w: 26, h: 5 },
+    align: { x: 232, y: 168, w: 10, h: 6 },
+    alignplate: { x: 224, y: 174, w: 26, h: 5 },
     floor: { y: 78, h: 44 },
     gutter: 6,
     codeFont: 3,
@@ -83,5 +87,6 @@ export const applyLayout = (layout) => {
   place(document.querySelector(`#nameplate`), layout.nameplate);
   place(document.querySelector(`#shownote`), layout.shownote);
   place(document.querySelector(`#slowplate`), layout.slowplate);
+  place(document.querySelector(`#alignplate`), layout.alignplate);
   place(document.querySelector(`#caption`), layout.caption);
 };

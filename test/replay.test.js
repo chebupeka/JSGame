@@ -258,3 +258,29 @@ test(`шум измеряется: поиск внутри обработчик�
   assert.equal(replay.view.finds, 0, `код профи: ноль, тихо`);
   assert.equal(seen.flashes.length, flashes, `ничего не вспыхнуло`);
 });
+
+test(`зачем лесенка: в ней искрит одно звено, однострочник гаснет весь`, () => {
+  const failAt = (code, line) => {
+    const { replay } = setup();
+    const marked = instrument(code);
+    replay.start({ slow: false, dip: false, marked, file: FILE }, 0);
+    [
+      { kind: `step`, n: 0 },
+      {
+        kind: `error`,
+        error: { file: FILE, line, column: 3, text: `TypeError: x` },
+      },
+      { kind: `done` },
+    ].forEach((event) => replay.receive(event));
+    return replay.view;
+  };
+
+  const ladder = failAt(`a\n  .b()\n  .c()\n  .d();`, 3);
+  assert.ok(ladder.flashes.has(3), `искрит звено, где упало`);
+  assert.equal(ladder.flashes.has(2), false);
+  assert.equal(ladder.lines.has(4), false, `ниже — темно`);
+
+  const oneLine = failAt(`a.b().c().d();`, 1);
+  assert.equal(oneLine.lines.size, 0, `вся строка погасла`);
+  assert.equal(oneLine.flashes.size, 0);
+});

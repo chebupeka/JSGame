@@ -2,7 +2,7 @@ import { drawGirl } from "../girl/girl.js";
 import { SCENE } from "../screen/scale.js";
 import { drawTerminalBody } from "../terminal/body.js";
 import { drawEdges } from "../terminal/edges.js";
-import { drawBreaker, drawLever, drawSlowToggle } from "../terminal/lever.js";
+import { drawBreaker, drawLever, drawToggle } from "../terminal/lever.js";
 import { sensorKind } from "../rooms/events.js";
 import { pulseActive } from "../trace/replay.js";
 import { drawCorners } from "./corners.js";
@@ -119,5 +119,6 @@ export const drawScene = (ctx, state, time) => {
   }
   drawLever(ctx, layout.lever, lever, time, sprites?.lever);
   drawBreaker(ctx, layout.breaker, state.breaker.tripped, sprites?.breaker);
-  drawSlowToggle(ctx, layout.slow, trace.slow);
+  drawToggle(ctx, layout.slow, trace.slow);
+  drawToggle(ctx, layout.align, time < (state.aligned ?? 0));
 };

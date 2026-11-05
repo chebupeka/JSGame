@@ -14,6 +14,7 @@ const PULSE = { run: 500, hold: 400, fade: 300 };
 const QUICK = 0.4;
 const IMPULSE = 300;
 const FLASH = 350;
+const SPARK = 1500;
 // События чаще этого — тонкие линии вместо вспышек.
 const FREQUENT = 120;
 
@@ -143,6 +144,10 @@ export const createReplay = ({
     statement.lines
       .filter((at) => at > line)
       .forEach((at) => view.lines.delete(at));
+    // Зачем лесенка (§4, шаг 10): в ней искрит одно звено, где упало,
+    // а однострочник гаснет весь — видно только, что упала вся строка.
+    if (statement.lines.length === 1) view.lines.delete(line);
+    else view.flashes.set(line, begin + SPARK);
   };
 
   // Датчик: защёлкнулся на вещи, сработал на событие, снят.
