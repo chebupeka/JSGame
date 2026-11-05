@@ -203,6 +203,9 @@ addEventListener(`pointerdown`, sound.start, { capture: true, once: true });
 const panOf = (rect) =>
   rect ? ((rect.x + rect.width / 2) / SCENE.width) * 2 - 1 : 0.2;
 
+// Когда последний раз трещал повторный поиск: от этого зависит море.
+let lastCrackle = -Infinity;
+
 // Показ по шагам: всё, что пришло из песочницы, идёт через него — мир
 // меняется, ошибка появляется ровно тогда, когда показ до неё дошёл.
 const replay = createReplay({
@@ -218,7 +221,10 @@ const replay = createReplay({
     saveProgress(progress);
   },
   onPulse: (rect) => sound.play(`pulse`, { pan: panOf(rect) }),
-  onSound: (id, rect) => sound.play(id, { pan: panOf(rect) }),
+  onSound: (id, rect) => {
+    if (id === `crackle`) lastCrackle = performance.now();
+    sound.play(id, { pan: panOf(rect) });
+  },
   // Ошибка внутри обработчика выбивает только эту ветку: автомат цел,
   // датчик слушает дальше. На полях — тот же разбор, что и всегда.
   onFault: (fault) => showError(unmark(fault)),
@@ -330,6 +336,7 @@ const run = ({ slow = false } = {}) => {
   state.world = null;
   state.notes = null;
   state.flicker = null;
+  state.later = null;
   if (scenario) scenario.run();
   else if (!state.solved) resetGirl(state.girl);
   refreshNotes();
@@ -357,6 +364,16 @@ const succeed = () => {
   saveProgress(progress);
   state.notes = [];
   refreshNotes();
+
+  // Несколько секунд ничего, и только потом честная пометка: был шум —
+  // откуда он; его нет — чем это лучше и чем не лучше. Переделывать
+  // не обязательно, дальше это не мешает.
+  const notes = replay.view.finds
+    ? task.noisy
+    : lastRun.includes(`({ target })`)
+      ? task.quietTarget
+      : task.quiet;
+  if (notes) state.later = { at: performance.now() + 4000, notes };
 
   const next = nextPlace(place);
   if (next) state.transition = { start: performance.now(), next };
@@ -692,6 +709,7 @@ const enter = (next) => {
   state.world = null;
   state.wires = [];
   state.ghosts = [];
+  state.later = null;
   state.glow = {};
   state.hint = 0;
   state.notes = state.solved ? [] : null;
@@ -769,7 +787,14 @@ const step = (now) => {
   }
   state.calm = settings.calm;
   shownote.hidden = !replay.view.slow;
-  if (!wasDone && place.finished(state.girl) && !state.solved) succeed();
+  if (!wasDone && place.finished(state.girl)) succeed();
+  if (state.later && now >= state.later.at) {
+    state.notes = state.later.notes;
+    state.later = null;
+    refreshNotes();
+  }
+  // Тише шум — громче море: треск слышен, пока поиск правда повторяется.
+  sound.hush(now - lastCrackle < 1500);
   last = now;
   state.dim = Math.max(dimAt(now), state.transition ? transitionDim(now) : 0);
   render(frozen ? state.stalled : now);

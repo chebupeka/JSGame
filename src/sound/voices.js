@@ -95,6 +95,7 @@ export const VOICES = {
     sway(ctx, level.gain, 0.085, 0.055);
     sway(ctx, filter.frequency, 0.06, 260);
     loop(audio).connect(filter).connect(level).connect(out);
+    return level;
   },
 
   // Гул станции: сетевые 50 Гц с обертонами. Возвращает свой уровень —
@@ -224,6 +225,20 @@ export const VOICES = {
       gain: 0.08,
     });
     if (audio.hum) glide(audio.hum.gain, 0, at + 0.02, 0.03);
+  },
+
+  // Треск реле: повторный поиск на каждый щелчок ручки.
+  crackle: (audio, { at, pan }) => {
+    const out = panned(audio, pan);
+    [0, 0.009, 0.021].forEach((delay, i) =>
+      burst(audio, out, {
+        at: at + delay,
+        length: 0.005,
+        type: `highpass`,
+        frequency: 3400,
+        gain: 0.12 - i * 0.03,
+      }),
+    );
   },
 
   // Ручка: мелкие сухие щелчки, пока её крутят.

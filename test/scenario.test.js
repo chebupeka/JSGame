@@ -164,3 +164,20 @@ test(`код поменяли, пока она шла садиться — во�
   assert.equal(girl.mode, `wait`);
   assert.deepEqual(outcomes, [`silent`]);
 });
+
+test(`код переписали, когда она уже сидела — встаёт и проверяет заново`, () => {
+  const { girl, scenario, run, turns } = setup({
+    onTurn: (world, value) => {
+      world.things.frame.background = rgb(value);
+    },
+  });
+  scenario.enter(true);
+  run(0.5);
+  assert.equal(girl.mode, `sat`);
+  const before = turns.length;
+
+  scenario.run();
+  run(40);
+  assert.ok(turns.length > before + 10, `она крутила ручку`);
+  assert.ok([`sit`, `sat`].includes(girl.mode));
+});

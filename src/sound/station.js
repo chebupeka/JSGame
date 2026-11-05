@@ -38,7 +38,7 @@ export const createSound = ({ settings, onCaption }) => {
     out.connect(ctx.createDynamicsCompressor()).connect(ctx.destination);
     audio = { ctx, out, noise: noiseBuffer(ctx), hum: null };
 
-    VOICES.sea(audio);
+    audio.sea = VOICES.sea(audio);
     audio.hum = VOICES.hum(audio);
     VOICES.wind(audio);
     apply();
@@ -51,5 +51,17 @@ export const createSound = ({ settings, onCaption }) => {
     VOICES[id](audio, { at: audio.ctx.currentTime, ...options });
   };
 
-  return { start, play, apply };
+  // Шум в комнате — море отступает, тишина — слышнее (MECHANICS.md §4).
+  let noisy = null;
+  const hush = (next) => {
+    if (next === noisy || !audio) return;
+    noisy = next;
+    audio.sea.gain.setTargetAtTime(
+      next ? 0.05 : 0.12,
+      audio.ctx.currentTime,
+      0.8,
+    );
+  };
+
+  return { start, play, apply, hush };
 };

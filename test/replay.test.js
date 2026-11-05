@@ -216,3 +216,45 @@ test(`найденная вещь горит, пока идёт поиск, и �
   assert.equal(pulseActive(pulse, 1900), false);
   assert.equal(pulseActive({ start: 1000, quick: true }, 1400), false);
 });
+
+test(`шум измеряется: поиск внутри обработчика считается на каждое событие`, () => {
+  const { replay, seen } = setup();
+  const code = `document\n  .querySelector(\`#frame-picker\`)\n  .addEventListener(\`input\`, () => {\n    document.querySelector(\`.frame\`).id;\n  });`;
+  const marked = instrument(code);
+  const rect = { x: 62, y: 20, width: 56, height: 29 };
+  replay.start({ slow: false, dip: false, marked, file: FILE }, 0);
+  replay.receive({
+    kind: `listen`,
+    key: `picker`,
+    rect,
+    type: `input`,
+    id: 1,
+    once: false,
+  });
+  replay.receive({ kind: `done` });
+
+  const turn = (found) => {
+    replay.receive({ kind: `event`, key: `picker`, type: `input`, id: 1 });
+    if (found) {
+      replay.receive({
+        kind: `find`,
+        file: FILE,
+        line: 4,
+        column: 14,
+        count: 1,
+        keys: [`frame`],
+        rects: [rect],
+      });
+    }
+    replay.receive({ kind: `handled`, id: 1 });
+  };
+
+  turn(true);
+  assert.equal(replay.view.finds, 1, `код новичка: один поиск на событие`);
+  assert.equal(seen.flashes.at(-1).keys[0], `frame`, `табличка вспыхнула`);
+  const flashes = seen.flashes.length;
+
+  turn(false);
+  assert.equal(replay.view.finds, 0, `код профи: ноль, тихо`);
+  assert.equal(seen.flashes.length, flashes, `ничего не вспыхнуло`);
+});

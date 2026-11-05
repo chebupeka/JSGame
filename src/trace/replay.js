@@ -70,6 +70,8 @@ export const createReplay = ({
     slow: false,
     // Показ этого запуска кончился: всё записанное показано.
     finished: false,
+    // Поисков на последнее событие: 0 — код нашёл вещь заранее, тихо.
+    finds: 0,
   };
   let show = null;
 
@@ -105,9 +107,14 @@ export const createReplay = ({
 
     const call = show.marked?.callAt(event.line, event.column);
     const wire = { rects: event.rects, keys: event.keys, kept: !!call?.kept };
-    // Поиск внутри обработчика, вживую: вещь на миг в светлых уголках.
+    // Поиск внутри обработчика, вживую: вещь на миг в светлых уголках,
+    // табличка вспыхивает, реле трещит. Это настоящий шум: сколько поисков
+    // на одно событие. Чисел на экране нет, только в view.finds для F12.
     if (show.finished) {
       view.pulses.push({ ...wire, kept: false, start: begin, quick: true });
+      view.finds += 1;
+      onFlash(event.keys, begin, begin + FLASH);
+      onSound(`crackle`, event.rects[0]);
       return;
     }
     if (!show.slow) {
@@ -153,6 +160,7 @@ export const createReplay = ({
     const thin = begin - (show.lastEvent ?? -Infinity) < FREQUENT;
     show.lastEvent = begin;
     sensor.value = event.value;
+    view.finds = 0;
     const impulse = { id: sensor.id, start: begin, thin };
     view.impulses.push(impulse);
     show.answer = { impulse, changed: false };
@@ -269,6 +277,7 @@ export const createReplay = ({
       view.dip = 0;
       view.slow = slow;
       view.finished = false;
+      view.finds = 0;
     },
 
     // Сообщение песочницы: снимок мира, шаг записи, ошибка или конец.
