@@ -2,8 +2,13 @@ import { FRAME_PLACE } from "./rooms/frame-room/place.js";
 import { SWITCHBOARD_PLACE } from "./rooms/switchboard/place.js";
 
 // Места станции по порядку дня (MECHANICS.md §7). Место — комната, её
-// вещи, задача и её путь по комнате.
+// вещи и задачи главы.
 export const PLACES = [SWITCHBOARD_PLACE, FRAME_PLACE];
+
+// Все задачи подряд. Каждая знает своё место.
+export const TASKS = PLACES.flatMap((place) =>
+  place.tasks.map((task) => ({ ...task, place })),
+);
 
 // Станция — один документ: все комнаты друг под другом, каждая 320×180.
 // Решённые файлы работают в нём всегда, поэтому из любой комнаты код
@@ -45,16 +50,3 @@ export const STATION_NAMES = {
 
 // Где верх комнаты этого места в документе станции.
 export const viewOf = (place) => PLACES.indexOf(place) * ROOM_HEIGHT;
-
-// Где игрок сейчас: первое место с нерешённой задачей, а если решено
-// всё — последнее.
-export const currentPlace = (solved) =>
-  PLACES.find(({ task }) => !solved[task.file]) ?? PLACES.at(-1);
-
-export const nextPlace = (place) => PLACES[PLACES.indexOf(place) + 1] ?? null;
-
-// Решённые файлы станции, которые работают до этого места.
-export const solvedBefore = (place, solved) =>
-  PLACES.slice(0, PLACES.indexOf(place))
-    .filter(({ task }) => solved[task.file])
-    .map(({ task }) => ({ name: task.file, code: solved[task.file] }));

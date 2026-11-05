@@ -156,7 +156,8 @@ export const createReplay = ({
   const listen = (event, begin) => {
     const { key, rect, type, id, once } = event;
     view.sensors.set(id, { key, rect, type, id, once, start: begin });
-    onSound(`clamp`, rect);
+    // Датчики решённых файлов висели и раньше: щёлкает только твой.
+    if (event.file === show.file) onSound(`clamp`, rect);
   };
 
   const fire = (event, begin) => {

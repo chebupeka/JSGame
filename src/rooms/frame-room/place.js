@@ -60,7 +60,8 @@ export const FRAME_PLACE = {
   room: { html, css },
   things: THINGS,
   names: NAMES,
-  task: FRAME_TASK,
+  // Здесь ей командует сценарий: она сама пробует ручку и проверяет код.
+  tasks: [{ ...FRAME_TASK, check: createScenario }],
   layout: FRAME_ROOM,
   path: [
     [shutter.x + Math.round(shutter.w / 2), 92],
@@ -73,14 +74,8 @@ export const FRAME_PLACE = {
   // Ручку крутят мышью: от тёмного к светлому.
   knob: { key: `picker`, center: knobCenter, at: knobAt, turn: knobTurn },
 
-  // Здесь ей командует сценарий: она сама пробует ручку и проверяет код.
-  createScenario,
-  ready: () => false,
-  // Перестала пробовать: села в свет окна.
-  finished: ({ mode }) => mode === `sit` || mode === `sat`,
-
   draw: (ctx, view) => {
-    const { world, sprites, roomPresent, solved, glow } = view;
+    const { world, sprites, roomPresent, monitors, glow } = view;
     drawFrameRoom(ctx, { roomPresent, sprites: sprites?.frameRoom });
     if (!roomPresent) return;
 
@@ -88,6 +83,6 @@ export const FRAME_PLACE = {
     drawWindow(ctx, world?.things.frameSmall, glow.frameSmall, false);
     drawKnob(ctx, knobCenter, world?.things.picker?.value);
     drawPlates(ctx, THINGS, view);
-    drawMonitor(ctx, FRAME_ROOM.screen, solved);
+    drawMonitor(ctx, FRAME_ROOM.screen, monitors[0]);
   },
 };

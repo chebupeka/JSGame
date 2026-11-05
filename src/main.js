@@ -23,15 +23,19 @@ import { SCENE, applyFrame, watchFrame } from "./screen/scale.js";
 import { createSettingsPage, loadSettings } from "./settings.js";
 import { createSound } from "./sound/station.js";
 import {
-  PLACES,
   STATION,
   STATION_NAMES,
   STATION_THINGS,
-  currentPlace,
-  nextPlace,
-  solvedBefore,
+  TASKS,
   viewOf,
 } from "./station.js";
+import {
+  entryCode,
+  filesFor,
+  firstOpen,
+  monitorsOf,
+  nextOf,
+} from "./tasks/chain.js";
 import { createEditor } from "./terminal/editor.js";
 import { formatCode } from "./terminal/format.js";
 import { isInside } from "./terminal/lever.js";
@@ -52,10 +56,10 @@ const canvas = document.querySelector(`#scene`);
 const ctx = canvas.getContext(`2d`);
 
 // Прогресс: решённые файлы работают на мониторах и в мире после F5,
-// черновик не теряется. Место — первое с нерешённой задачей.
+// черновик не теряется. Открыта первая нерешённая задача.
 const progress = loadProgress();
-let place = currentPlace(progress.solved);
-let task = place.task;
+let task = firstOpen(TASKS, progress.tasks);
+let place = task.place;
 
 const state = {
   layout: LAYOUTS.large,
@@ -80,6 +84,9 @@ const state = {
   wires: [],
   // Призрачные датчики, пока печатаешь (превью).
   ghosts: [],
+  // Решена ли открытая задача и код на мониторах этого места.
+  solved: false,
+  monitors: [],
 };
 
 const render = (time = performance.now()) => drawScene(ctx, state, time);
@@ -101,6 +108,7 @@ const refreshNotes = () =>
 // Подсказки бесплатные, ничего не считается. Разбор ошибки при этом
 // остаётся на месте, подсказка встаёт под ним.
 document.querySelector(`#notes`).addEventListener(`click`, () => {
+  if (hurry()) return;
   state.hint = Math.min(task.hints.length, state.hint + 1);
   refreshNotes();
 });
@@ -213,14 +221,14 @@ let lastCrackle = -Infinity;
 // меняется, ошибка появляется ровно тогда, когда показ до неё дошёл.
 const replay = createReplay({
   onWorld: (world) => {
-    state.world = world;
+    if (!settling) state.world = world;
   },
   onError: fail,
   onFlash: (keys, from, until) => {
     state.flash = { keys, from, until };
   },
   onSlowShown: () => {
-    progress.shown[task.file] = true;
+    progress.shown[task.id] = true;
     saveProgress(progress);
   },
   onPulse: (rect) => sound.play(`pulse`, { pan: panOf(rect) }),
@@ -235,8 +243,8 @@ const replay = createReplay({
   // Так и задумано: об этом один раз за задачу.
   onFinish: () => {
     if (!replay.view.sensors.size || state.notes || !task.waiting) return;
-    if (progress.waited[task.file]) return;
-    progress.waited[task.file] = true;
+    if (progress.waited[task.id]) return;
+    progress.waited[task.id] = true;
     saveProgress(progress);
     state.notes = [task.waiting];
     refreshNotes();
@@ -266,23 +274,24 @@ state.trace = replay.view;
 // Разметка последнего запуска: столбцы ошибок и мест вызова в размеченном
 // коде правее твоих, map() возвращает их назад.
 let marked = null;
-// Сценарий места: она сама пробует вещи. В щитовой его нет.
+// Её проверка открытой задачи: как она пробует код и куда идёт потом.
 let scenario = null;
+// Открыли задачу: решённые файлы заново поднимают мир. Пока они не
+// закончат, на экране прежний снимок — иначе свет мигнул бы.
+let settling = false;
+let settled = null;
 const unmark = (place) =>
   marked && place.file === task.file && place.column
     ? { ...place, column: marked.map(place.line, place.column) }
     : place;
 
-// Файлы станции, которые работают и без запуска: решённые до этого места
-// и решённый файл самого места. Без меток показа, но со сторожем циклов.
-const guarded = (files) =>
-  files.map(({ name, code }) => ({ name, code: guardLoops(code) }));
-
-const stationFiles = () =>
-  guarded([
-    ...solvedBefore(place, progress.solved),
-    ...(state.solved ? [{ name: task.file, code: state.solved }] : []),
-  ]);
+// Файлы станции: решённые работают и без запуска, каждый со сторожем
+// циклов, но без меток показа. Метки есть только в твоём коде этого запуска.
+const stationFiles = (current = null) =>
+  filesFor(TASKS, task, progress.files, current).map(({ name, code }) => ({
+    name,
+    code: current !== null && name === task.file ? code : guardLoops(code),
+  }));
 
 // Ошибка или сторож в решённом файле прошлой комнаты — не про задачу
 // на экране: автомат её не выбивает, на полях о ней ни слова. Сторож
@@ -294,14 +303,24 @@ const sandbox = createSandbox({
   previewContainer: document.querySelector(`#preview`),
   room: STATION,
   things: STATION_THINGS,
-  solvedFiles: () => stationFiles(),
+  // В превью — без файла, который сейчас правится: он ещё не запущен.
+  solvedFiles: () => stationFiles().filter(({ name }) => name !== task.file),
   view: () => viewOf(place),
-  onSnapshot: (world) => replay.receive({ kind: `world`, world }),
+  onSnapshot: (world) => {
+    settled = world;
+    replay.receive({ kind: `world`, world });
+  },
   onTrace: (event) => replay.receive(event),
   onError: (error) => {
     if (mine(error)) replay.receive({ kind: `error`, error: unmark(error) });
   },
-  onDone: () => replay.receive({ kind: `done` }),
+  onDone: () => {
+    if (settling) {
+      settling = false;
+      state.world = settled;
+    }
+    replay.receive({ kind: `done` });
+  },
   onStall: (busy) => {
     state.stalled = busy ? performance.now() : null;
     if (busy) sound.play(`strain`);
@@ -330,7 +349,6 @@ state.sprites = sprites;
 ctx.imageSmoothingEnabled = false;
 
 // Запуск — как перезагрузка питания: чистая страница, затем твой код.
-// Пока задача не решена, она снова стоит у ставня и ждёт, что получится.
 // Первый запуск задачи показывается медленно, и свет проседает.
 const run = ({ slow = false } = {}) => {
   state.lever.closed = true;
@@ -340,53 +358,68 @@ const run = ({ slow = false } = {}) => {
   state.notes = null;
   state.flicker = null;
   state.later = null;
-  if (scenario) scenario.run();
-  else if (!state.solved) resetGirl(state.girl);
+  settling = false;
+  scenario.run();
   refreshNotes();
   lastRun = editor.state.doc.toString();
   marked = instrument(lastRun);
   editor.dispatch({ effects: setNotch.of(null) });
 
-  const first = !progress.shown[task.file];
+  const first = !progress.shown[task.id];
   replay.start({ slow: slow || first, dip: first, marked, file: task.file });
-  sandbox.run([
-    ...guarded(solvedBefore(place, progress.solved)),
-    { name: task.file, code: marked.code },
-  ]);
+  sandbox.run(stationFiles(marked.code));
   sound.play(`lever`);
   sound.play(`rise`);
 };
 
-// Успех ничем не объявляется (MECHANICS.md §3.4): она прошла в дверь,
-// файл уезжает на монитор на стене и работает там дальше. Несколько
-// секунд игра ничего не предлагает — можно просто смотреть.
+// Успех ничем не объявляется (MECHANICS.md §3.4): она сделала своё, файл
+// уезжает на монитор и работает там дальше. Несколько секунд игра ничего
+// не предлагает — можно просто смотреть. Потом честная пометка, если есть
+// что сказать (был шум — откуда он; его нет — чем это лучше и чем не лучше;
+// переделывать не обязательно), и следующая задача.
+const QUIET = 4000;
+const NOTE_AT = 1500;
+const readingTime = (notes) =>
+  3000 + 50 * notes.reduce((sum, { length }) => sum + length, 0);
+
 const succeed = () => {
-  scenario?.solve();
-  state.solved = lastRun;
-  progress.solved[task.file] = lastRun;
+  scenario.solve();
+  state.solved = true;
+  progress.tasks[task.id] = true;
+  progress.files[task.file] = lastRun;
+  delete progress.drafts[task.id];
   saveProgress(progress);
+  state.monitors = monitorsOf(place.tasks, progress.files);
   state.notes = [];
   refreshNotes();
 
-  // Несколько секунд ничего, и только потом честная пометка: был шум —
-  // откуда он; его нет — чем это лучше и чем не лучше. Переделывать
-  // не обязательно, дальше это не мешает.
-  const notes = replay.view.finds
-    ? task.noisy
-    : lastRun.includes(`({ target })`)
-      ? task.quietTarget
-      : task.quiet;
-  if (notes) state.later = { at: performance.now() + 4000, notes };
+  const now = performance.now();
+  const notes = task.after?.({ finds: replay.view.finds, code: lastRun });
+  if (notes) state.later = { at: now + NOTE_AT, notes };
 
-  const next = nextPlace(place);
-  if (next) state.transition = { start: performance.now(), next };
+  const next = nextOf(TASKS, task);
+  if (next) {
+    const pause = notes ? NOTE_AT + readingTime(notes) : QUIET;
+    state.transition = { start: now, pause, next, fade: next.place !== place };
+  }
+};
+
+// Клавиша или щелчок по полям во время паузы: хватит смотреть, дальше.
+const hurry = () => {
+  const { transition } = state;
+  if (!transition || transition.entered) return false;
+  transition.pause = Math.min(
+    transition.pause,
+    performance.now() - transition.start,
+  );
+  return true;
 };
 
 let saveDraft = null;
 const keepDraft = () => {
   clearTimeout(saveDraft);
   saveDraft = setTimeout(() => {
-    progress.drafts[task.file] = editor.state.doc.toString();
+    if (!state.solved) progress.drafts[task.id] = editor.state.doc.toString();
     saveProgress(progress);
   }, 500);
 };
@@ -397,7 +430,7 @@ applyLayout(state.layout);
 let live = null;
 const { view: editor, load: loadCode } = createEditor(
   document.querySelector(`#code`),
-  progress.drafts[task.file] ?? task.code,
+  ``,
   {
     onRun: run,
     onChange: (update) => {
@@ -577,7 +610,10 @@ addEventListener(
   `keydown`,
   (event) => {
     const running = event.key === `Enter` && (event.ctrlKey || event.metaKey);
-    if (!MODIFIERS.has(event.key) && !running) replay.skip();
+    if (MODIFIERS.has(event.key) || running) return;
+    replay.skip();
+    // Пауза после успеха: клавиша ведёт дальше, в решённый файл не печатает.
+    if (hurry()) event.preventDefault();
   },
   { capture: true },
 );
@@ -734,15 +770,15 @@ const turnKnob = (value, event) => {
 
 // Чем кончилась её проверка. Разбор ошибки на полях не перебиваем.
 const SILENT = `Самые неприятные ошибки — молчаливые. Проверь щупом, что на самом деле пришло.`;
-const outcome = (kind) => {
+const outcome = (kind, note = null) => {
   // «Пока ничего. Так и надо» было про время до её пробы: теперь она
   // попробовала, и это уже неправда. Разбор ошибки остаётся.
   const waiting = state.notes?.[0] === task.waiting;
   if (state.notes && !waiting) return;
 
   state.notes = null;
-  if (kind === `almost` && task.almost) {
-    state.notes = [task.almost];
+  if (kind === `almost` && (note ?? task.almost)) {
+    state.notes = [note ?? task.almost];
   } else if (kind === `silent` && !progress.waited.silent) {
     progress.waited.silent = true;
     saveProgress(progress);
@@ -751,85 +787,98 @@ const outcome = (kind) => {
   refreshNotes();
 };
 
-// Вход в место: его задача в терминале, она у ставня, станция с уже
-// решёнными файлами. Решено и это место — она уже ушла, файл на мониторе.
-const enter = (next) => {
-  place = next;
-  task = next.task;
-  state.place = next;
-  state.solved = progress.solved[task.file] ?? null;
-  state.world = null;
+// Открыть задачу: её файл в терминале, она там, где закончила прошлую,
+// станция поднята решёнными файлами. Задача уже решена (F5 после конца) —
+// она стоит там, куда ушла, в терминале решённый код.
+const open = (next) => {
+  const moved = next.place !== place || !scenario;
+  clearTimeout(saveDraft);
+  task = next;
+  place = next.place;
+  state.place = place;
+  state.solved = !!progress.tasks[task.id];
+  state.monitors = monitorsOf(place.tasks, progress.files);
   state.wires = [];
   state.ghosts = [];
   state.later = null;
-  state.glow = {};
   state.hint = 0;
   state.notes = state.solved ? [] : null;
   state.lever.closed = false;
   state.breaker.tripped = false;
-  resetGirl(state.girl, next.path);
-  if (state.solved && !next.createScenario) state.girl.mode = `gone`;
   state.flicker = null;
+  if (moved) {
+    state.world = null;
+    state.glow = {};
+    resetGirl(state.girl, place.path);
+  }
 
   nameplate.textContent = task.file;
-  loadCode(progress.drafts[task.file] ?? task.code);
+  lastRun = state.solved ? progress.files[task.file] : ``;
+  loadCode(
+    state.solved
+      ? lastRun
+      : (progress.drafts[task.id] ?? entryCode(task, progress.files)),
+  );
   refreshNotes();
   live.schedule();
 
-  lastRun = state.solved ?? ``;
   marked = null;
   sandbox.refresh();
+  settling = true;
   replay.start({ slow: false, dip: false, marked: null, file: task.file });
   sandbox.run(stationFiles());
-  scenario =
-    next.createScenario?.({
-      girl: state.girl,
-      turnKnob,
-      onOutcome: outcome,
-    }) ?? null;
-  scenario?.enter(!!state.solved);
+  scenario = task.check({
+    girl: state.girl,
+    turnKnob,
+    onOutcome: outcome,
+  });
+  scenario.enter(state.solved);
   editor.focus();
 };
 
-// Переход после успеха: несколько секунд ничего не происходит — можно
-// просто смотреть. Потом комната темнеет, и вот уже другое место:
-// прошло время.
-const QUIET = 4000;
+// Переход после успеха: несколько секунд ничего не происходит. Дальше та
+// же комната — просто следующий файл в терминале. Другое место — комната
+// темнеет, и вот уже другое место: прошло время.
 const FADE = 800;
 const transitionDim = (now) => {
-  const t = now - state.transition.start - QUIET;
+  const { start, pause, next, fade } = state.transition;
+  const t = now - start - pause;
   if (t < 0) return 0;
+  if (!fade) {
+    state.transition = null;
+    open(next);
+    return 0;
+  }
   if (t < FADE) return t / FADE;
   if (!state.transition.entered) {
     state.transition.entered = true;
-    enter(state.transition.next);
+    open(next);
   }
   if (t < 2 * FADE) return 2 - t / FADE;
   state.transition = null;
   return 0;
 };
 
-enter(place);
+open(task);
 
 const shownote = document.querySelector(`#shownote`);
 let last = performance.now();
 const step = (now) => {
-  const ready = place.ready(state.world);
-  const wasDone = place.finished(state.girl);
+  const wasDone = scenario.finished();
   // Код занят — мир застыл: она посреди шага, импульсы на месте.
   const frozen = state.stalled !== null;
 
   if (!frozen) {
     const dt = Math.min(0.1, (now - last) / 1000);
     replay.update(now);
-    scenario?.update({
+    scenario.update({
       dt,
       world: state.world,
       sensors: replay.view.sensors,
       showDone: replay.view.finished,
       failed: state.breaker.tripped || !state.lever.closed,
     });
-    updateGirl(state.girl, { ready }, dt);
+    updateGirl(state.girl, dt);
     const rate = settings.calm ? GLOW_RATE.calm : GLOW_RATE.normal;
     (place.glows ?? []).forEach((key) => {
       const thing = state.world?.things[key];
@@ -839,7 +888,7 @@ const step = (now) => {
   }
   state.calm = settings.calm;
   shownote.hidden = !replay.view.slow;
-  if (!wasDone && place.finished(state.girl)) succeed();
+  if (!wasDone && scenario.finished()) succeed();
   if (state.later && now >= state.later.at) {
     state.notes = state.later.notes;
     state.later = null;
@@ -867,6 +916,7 @@ if (import.meta.env.DEV) {
     editor,
     sandbox,
     step,
-    goto: (key) => enter(PLACES.find((each) => each.key === key)),
+    goto: (id) =>
+      open(TASKS.find((each) => each.id === id || each.place.key === id)),
   });
 }

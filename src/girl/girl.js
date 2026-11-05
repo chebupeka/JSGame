@@ -2,12 +2,9 @@ import { grey } from "../render/palette.js";
 import { rect } from "../render/pixels.js";
 
 // Она. Её нет в DOM: это человек, который пользуется твоим кодом.
-// Стоит перед ставнем спиной к нам, там, где из-под него пробивается
-// дневной свет, а когда получила, что ей нужно, идёт к двери. Путь —
-// у каждого места свой: [[x, ноги] у ставня, [x, ноги] у порога].
-// Где нужно больше (ручка, сесть в свет), ей командует сценарий места:
-// walkTo, а затем режимы turn (крутит), wait (ждёт), sit и sat (садится
-// и сидит).
+// Ей командует проверка задачи (src/tasks/check.js и сценарии мест):
+// goTo, а затем режимы stand (стоит), turn (крутит), wait (ждёт),
+// sit и sat (садится и сидит), rise (встаёт), gone (скрылась).
 //
 // Спрайты — листы кадров assets/sprites/girl-<действие>.png: клетки 24×40,
 // ноги в точке (12, 39) каждой клетки. Ходьба нарисована лицом вправо,
@@ -67,21 +64,48 @@ export const sitDown = (girl) => {
   girl.sitAt = girl.clock;
 };
 
-export const updateGirl = (girl, { ready }, dt) => {
-  girl.clock += dt;
-  if (
-    girl.mode === `sit` &&
-    girl.clock - girl.sitAt >= SIT_FRAME * SIT_FRAMES
-  ) {
-    girl.mode = `sat`;
+const isSeated = ({ mode }) => mode === `sit` || mode === `sat`;
+
+// Дойти до точки и принять позу. Сидит — сначала встанет. Уже здесь —
+// примет позу на месте. Поза gone — скрылась за порогом, потемнев у него.
+export const goTo = (girl, to, pose) => {
+  const then = pose === `gone` ? null : pose;
+  if (isSeated(girl)) {
+    Object.assign(girl, {
+      mode: `rise`,
+      sitAt: girl.clock,
+      after: { to, then },
+    });
+    return;
   }
-  if (girl.mode === `stand` && ready) girl.mode = `walk`;
+
+  const { feetX, feetY } = feetOf(girl);
+  if (feetX !== to[0] || feetY !== to[1]) return walkTo(girl, to, then);
+  if (pose === `sit`) return sitDown(girl);
+  girl.mode = pose;
+};
+
+// Какой режим значит, что она приняла позу и больше не двигается.
+export const settled = (girl, pose) =>
+  girl.mode === (pose === `sit` ? `sat` : pose);
+
+export const updateGirl = (girl, dt) => {
+  girl.clock += dt;
+  const held = girl.clock - girl.sitAt;
+  if (girl.mode === `sit` && held >= SIT_FRAME * SIT_FRAMES) girl.mode = `sat`;
+  if (girl.mode === `rise` && held >= SIT_FRAME * SIT_FRAMES) {
+    girl.mode = `stand`;
+    const { to, then } = girl.after;
+    goTo(girl, to, then ?? `gone`);
+  }
   if (girl.mode !== `walk`) return;
 
   const [[fromX, fromFeet], [toX, toFeet]] = girl.path;
   const distance = Math.max(1, Math.hypot(toX - fromX, toFeet - fromFeet));
   girl.progress = Math.min(1, girl.progress + (SPEED * dt) / distance);
-  if (girl.progress === 1) girl.mode = girl.then ?? `gone`;
+  if (girl.progress < 1) return;
+  if (girl.then === `sit`) sitDown(girl);
+  else girl.mode = girl.then ?? `gone`;
 };
 
 // Фигура ровно 14 в ширину: столько места под неё заложено на полу.
@@ -168,11 +192,17 @@ export const drawGirl = (ctx, girl, time, sheets) => {
   }
 
   // Села: кадры садится по порядку, потом сидит спиной к нам, лицом к окну.
-  // Сидит в синем свете окна — на кромке синий отсвет.
-  if ((mode === `sit` || mode === `sat`) && sheets.lit?.sit) {
+  // Встаёт — те же кадры в обратном порядке. В синем свете — на кромке
+  // синий отсвет.
+  if ((isSeated(girl) || mode === `rise`) && sheets.lit?.sit) {
     const last = frames(sheets.lit.sit) - 1;
     const step = Math.floor((girl.clock - girl.sitAt) / SIT_FRAME);
-    const frame = mode === `sat` ? last : Math.min(last, step);
+    const frame =
+      mode === `sat`
+        ? last
+        : mode === `rise`
+          ? Math.max(0, last - step)
+          : Math.min(last, step);
     drawFrame(ctx, sheets.lit.sit, frame, feetX, feetY, false);
     return;
   }

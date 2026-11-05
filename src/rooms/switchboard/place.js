@@ -1,5 +1,6 @@
 import { drawLampLight } from "../../render/light.js";
 import { drawPlates } from "../../render/plates.js";
+import { snapshotCheck } from "../../tasks/check.js";
 import { LAMP_TASK } from "../../tasks/lamp.js";
 import { SWITCHBOARD, drawSwitchboard } from "./backdrop.js";
 import {
@@ -38,17 +39,23 @@ export const SWITCHBOARD_PLACE = {
   room: SWITCHBOARD_ROOM,
   things: SWITCHBOARD_THINGS,
   names: SWITCHBOARD_NAMES,
-  task: LAMP_TASK,
+  tasks: [
+    {
+      ...LAMP_TASK,
+      // Ей нужно одно: свет. Лампа горит — она идёт и проходит в дверь.
+      check: snapshotCheck({
+        from: { at: PATH[0], pose: `stand` },
+        to: { at: PATH[1], pose: `gone` },
+        test: (world) =>
+          !!world?.room.present && hasClass(world.things.lamp, `on`),
+      }),
+    },
+  ],
   layout: SWITCHBOARD,
   path: PATH,
 
-  // Ей нужно одно: свет. Лампа горит — она идёт.
-  ready: (world) => !!world?.room.present && hasClass(world.things.lamp, `on`),
-  // Перестала пробовать: прошла в дверь.
-  finished: ({ mode }) => mode === `gone`,
-
   draw: (ctx, view) => {
-    const { world, sprites, roomPresent, solved } = view;
+    const { world, sprites, roomPresent, monitors } = view;
     drawSwitchboard(ctx, { roomPresent, background: sprites?.background });
     if (!roomPresent) return;
 
@@ -56,6 +63,6 @@ export const SWITCHBOARD_PLACE = {
     drawPlates(ctx, SWITCHBOARD_THINGS, view);
     drawLight(ctx, world?.things.lamp);
     // Решённый файл работает на мониторе на стене.
-    drawMonitor(ctx, SWITCHBOARD.screen, solved);
+    drawMonitor(ctx, SWITCHBOARD.screen, monitors[0]);
   },
 };

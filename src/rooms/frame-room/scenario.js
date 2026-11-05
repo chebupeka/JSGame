@@ -1,4 +1,4 @@
-import { placeGirl, sitDown, walkTo } from "../../girl/girl.js";
+import { placeGirl, walkTo } from "../../girl/girl.js";
 import { glassLevel } from "../../render/glass.js";
 import { parseHex, parseRgb } from "../../render/ladder.js";
 import { knobPosition, knobTurn } from "./knob.js";
@@ -117,6 +117,9 @@ export const createScenario = ({ girl, turnKnob, onOutcome }) => {
       solved = true;
     },
 
+    // Перестала пробовать: села в свет окна.
+    finished: () => girl.mode === `sit` || girl.mode === `sat`,
+
     update: ({ dt, world, sensors, showDone, failed }) => {
       timer -= dt;
 
@@ -186,7 +189,6 @@ export const createScenario = ({ girl, turnKnob, onOutcome }) => {
       }
 
       if (phase === `leaving` && girl.mode === `sit`) {
-        sitDown(girl);
         armed = false;
         set(`done`);
       }

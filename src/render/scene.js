@@ -96,7 +96,7 @@ export const drawScene = (ctx, state, time) => {
     // Вещи, которые держит переменная: их табличка горит и после показа.
     held: new Set(trace.kept.flatMap(({ keys }) => keys)),
     time,
-    solved: state.solved,
+    monitors: state.monitors,
     glow: state.glow,
   });
   if (roomPresent) {

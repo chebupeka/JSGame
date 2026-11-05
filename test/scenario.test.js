@@ -49,7 +49,7 @@ const setup = ({ onTurn = () => {} } = {}) => {
         failed: false,
         ...status,
       });
-      updateGirl(girl, { ready: false }, STEP);
+      updateGirl(girl, STEP);
     }
   };
   return { world, turns, outcomes, girl, scenario, sensors, run };
