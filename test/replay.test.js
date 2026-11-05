@@ -74,7 +74,9 @@ const LAMP = `document.querySelector(\`#lamp\`).classList.add(\`on\`);`;
 test(`первый показ медленный: свет проседает, лампа горит на своём шаге`, () => {
   const { replay, seen } = setup();
   const { marked, events } = recording(LAMP);
-  const t0 = performance.now();
+  // Время показа — подставное и заведомо впереди настоящего: занятая машина
+  // не должна сдвигать шаги показа.
+  const t0 = performance.now() + 60000;
   const at = (ms) => replay.update(t0 + ms);
   replay.start({ slow: true, dip: true, marked, file: FILE }, t0);
   events.forEach((event) => replay.receive(event));
